@@ -20,3 +20,10 @@ Prometheus:
 Auth:
   AccessSecret: uOvKLmVfztaXGpNYd4Z0I1SiT7MweJhl
   AccessExpire: 86400
+Log:
+  ServiceName: user.api
+  Mode: file
+  Encoding: json
+  Path: /var/log/golang
+  Level: info
+  TimeFormat: "2006-01-02T15:04:05.000Z07:00"

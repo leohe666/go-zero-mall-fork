@@ -13,6 +13,10 @@ Telemetry:
   Endpoint: jaeger:4317
   Sampler: 1.0
   Batcher: otlpgrpc
+Prometheus:
+  Host: 0.0.0.0
+  Port: 9083
+  Path: /metrics
 Auth:
   AccessSecret: uOvKLmVfztaXGpNYd4Z0I1SiT7MweJhl
   AccessExpire: 86400

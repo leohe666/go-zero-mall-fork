@@ -23,6 +23,9 @@ func main() {
 
 	var c config.Config
 	conf.MustLoad(*configFile, &c)
+
+	c.SetUp()
+
 	ctx := svc.NewServiceContext(c)
 	svr := server.NewProductServer(ctx)
 

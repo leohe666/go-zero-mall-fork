@@ -19,7 +19,8 @@ Prometheus:
   Path: /metrics
 Auth:
   AccessSecret: uOvKLmVfztaXGpNYd4Z0I1SiT7MweJhl
-  AccessExpire: 86400Log:
+  AccessExpire: 86400
+Log:
   ServiceName: api.api
   Mode: file
   Encoding: json

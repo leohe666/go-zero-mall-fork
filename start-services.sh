@@ -112,11 +112,31 @@ restart_service() {
         fi
         sleep 0.2
     done
-    # 2) 激进清理端口 (SO_REUSEADDR 也需内核释放，强制等待)
+    # 2) 激进清理端口
     wait_port_free $port
-    # 3) 额外等待 1s 确保内核完全释放
+    # 3) 等二进制写完整且是合法 ELF（避免 air 写到一半就被检测到）
+    local bin_path="./tmp/$name"
+    local max_wait=15
+    local start_bin=$(date +%s)
+    while true; do
+        # 检查文件大小稳定
+        local curr_size=$(stat -c %s "$bin_path" 2>/dev/null || echo 0)
+        if [ "$curr_size" -gt 0 ]; then
+            # 检查是否为合法 ELF 可执行文件
+            if file "$bin_path" 2>/dev/null | grep -q "ELF.*executable"; then
+                echo "[hot-reload] $name binary ready (size: $curr_size)"
+                break
+            fi
+        fi
+        if [ $(($(date +%s) - start_bin)) -gt $max_wait ]; then
+            echo "Warning: $name binary not ready after ${max_wait}s, retrying anyway..."
+            break
+        fi
+        sleep 0.3
+    done
+    # 4) 额外等待 1s 确保内核完全释放
     sleep 1
-    # 4) 启动新进程
+    # 5) 启动新进程
     $start_func
     eval "$pid_var=\\$!"
     eval "$mtime_var=\\$(get_mtime ./tmp/$name)"

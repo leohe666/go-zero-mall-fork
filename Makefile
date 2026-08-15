@@ -3,6 +3,7 @@
 #      make build       # 仅编译 8 个服务到 tmp/
 #      make air         # 仅跑 8 个 air 监听编译 (后台)
 #      make services    # 仅跑 start-services.sh 进程守护
+#      make logs        # 查看指定服务的 air 输出: make logs svc=user_api
 #      make stop        # 停止所有后台进程
 #      make clean       # 清理编译产物
 
@@ -18,7 +19,7 @@ endif
 AIR_CONFIGS := .air.user_api.toml .air.product_api.toml .air.order_api.toml .air.pay_api.toml \
                .air.user_rpc.toml .air.product_rpc.toml .air.order_rpc.toml .air.pay_rpc.toml
 
-.PHONY: run build air services stop clean help
+.PHONY: run build air services logs stop clean help
 
 # 默认目标
 help:
@@ -27,18 +28,20 @@ help:
 	@echo "  make build     - 仅编译 8 个服务到 tmp/"
 	@echo "  make air       - 仅运行 8 个 air 监听文件变化并编译 (后台)"
 	@echo "  make services  - 仅运行进程守护 (需 air 在后台跑)"
+	@echo "  make logs      - 查看指定服务 air 输出: make logs svc=user_api"
 	@echo "  make stop      - 停止所有后台进程"
 	@echo "  make clean     - 清理 tmp/ 目录"
 
-# 启动完整开发环境: 8 个 air (后台) + start-services.sh (前台)
+# 启动完整开发环境: 8 个 air (后台, 输出各自日志) + start-services.sh (前台)
 run:
 	@echo "=== Starting dev environment with per-service hot-reload ==="
 	@cd $(CODE_DIR) && \
+	mkdir -p tmp && \
 	for cfg in $(AIR_CONFIGS); do \
-	  air -c $$cfg & \
-	  echo "air $$cfg started (pid $$!)"; \
+	  name=$${cfg#.air.}; name=$${name%.toml}; \
+	  air -c $$cfg > tmp/air.$$name.log 2>&1 & \
+	  echo "air $$cfg started (pid $$!) -> tmp/air.$$name.log"; \
 	done; \
-	AIR_PIDS=$$!; \
 	trap "pkill -f 'air -c .air' 2>/dev/null; exit" INT TERM; \
 	./start-services.sh
 
@@ -60,12 +63,24 @@ build:
 air:
 	@echo "=== Running 8 air file watchers (per-service) ==="
 	@cd $(CODE_DIR) && \
+	mkdir -p tmp && \
 	for cfg in $(AIR_CONFIGS); do \
-	  air -c $$cfg & \
-	  echo "air $$cfg started (pid $$!)"; \
+	  name=$${cfg#.air.}; name=$${name%.toml}; \
+	  air -c $$cfg > tmp/air.$$name.log 2>&1 & \
+	  echo "air $$cfg started (pid $$!) -> tmp/air.$$name.log"; \
 	done; \
 	echo "All 8 air watchers running in background"; \
 	echo "Run 'make services' in another terminal to start services"
+
+# 查看指定服务的 air 输出 (实时): make logs svc=user_api
+logs:
+	@cd $(CODE_DIR) && if [ -n "$(svc)" ]; then \
+	  tail -f tmp/air.$(svc).log; \
+	else \
+	  echo "用法: make logs svc=<服务名>  如: make logs svc=user_api"; \
+	  echo "可用的 air 日志:"; \
+	  ls -1 tmp/air.*.log 2>/dev/null || echo "  (暂无, 先运行 make run)"; \
+	fi
 
 # 仅跑进程守护 (需 air 在别处跑)
 services:

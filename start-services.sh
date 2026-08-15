@@ -4,7 +4,15 @@
 
 set -e
 
-cd /usr/src/code
+# 自动检测工作目录: 容器里是 /usr/src/code, 本地是脚本所在目录
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "/usr/src/code/go.mod" ]; then
+    CODE_DIR="/usr/src/code"
+else
+    CODE_DIR="$SCRIPT_DIR"
+fi
+
+cd "$CODE_DIR"
 
 echo "=== Starting all services with air hot-reload ==="
 

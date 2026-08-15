@@ -95,13 +95,27 @@ restart_service() {
     local port=$5
     
     echo "[hot-reload] $name binary updated, restarting..."
-    kill ${!pid_var} 2>/dev/null || true
-    # 等待端口释放
+    local old_pid=${!pid_var}
+    kill $old_pid 2>/dev/null || true
+    # 1) 等进程彻底退出
+    local wait_pid=0
+    local start_wait=$(date +%s)
+    while kill -0 $old_pid 2>/dev/null; do
+        if [ $(($(date +%s) - start_wait)) -gt 10 ]; then
+            echo "Warning: $name (pid $old_pid) still alive after 10s, SIGKILL..."
+            kill -9 $old_pid 2>/dev/null || true
+            sleep 0.5
+            break
+        fi
+        sleep 0.2
+    done
+    # 2) 再等端口释放
     wait_port_free $port
-    # 启动新进程
+    # 3) 启动新进程
     $start_func
-    eval "$pid_var=\$!"
-    eval "$mtime_var=\$(get_mtime ./tmp/$name)"
+    eval "$pid_var=\\$!"
+    eval "$mtime_var=\\$(get_mtime ./tmp/$name)"
+    echo "[hot-reload] $name restarted (new pid ${!pid_var})"
 }
 
 # 启动所有服务

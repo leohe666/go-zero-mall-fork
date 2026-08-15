@@ -48,22 +48,26 @@ wait_port_free() {
     local start=$(date +%s)
     # 使用多种方式检查端口
     while true; do
+        local PORT_IN_USE=0
         if command -v ss >/dev/null 2>&1; then
-            ss -tlnp 2>/dev/null | grep -q ":$port " && PORT_IN_USE=1 || PORT_IN_USE=0
+            ss -tlnp 2>/dev/null | grep -q ":$port " && PORT_IN_USE=1
+            # 也检查 TIME_WAIT
+            ss -tanp 2>/dev/null | grep -q ":$port " && PORT_IN_USE=1
         elif command -v netstat >/dev/null 2>&1; then
-            netstat -tlnp 2>/dev/null | grep -q ":$port " && PORT_IN_USE=1 || PORT_IN_USE=0
+            netstat -tlnp 2>/dev/null | grep -q ":$port " && PORT_IN_USE=1
+            netstat -tanp 2>/dev/null | grep -q ":$port " && PORT_IN_USE=1
         elif command -v lsof >/dev/null 2>&1; then
-            lsof -i :$port 2>/dev/null | grep -q LISTEN && PORT_IN_USE=1 || PORT_IN_USE=0
+            lsof -i :$port 2>/dev/null | grep -q LISTEN && PORT_IN_USE=1
         else
-            # fallback: try to bind to port
-            (timeout 1 bash -c "cat < /dev/null > /dev/tcp/127.0.0.1/$port" 2>/dev/null) && PORT_IN_USE=1 || PORT_IN_USE=0
+            (timeout 1 bash -c "cat < /dev/null > /dev/tcp/127.0.0.1/$port" 2>/dev/null) && PORT_IN_USE=1
         fi
         if [ $PORT_IN_USE -eq 0 ]; then
+            # 额外等待 0.5s 确保内核释放
+            sleep 0.5
             return 0
         fi
         if [ $(($(date +%s) - start)) -gt $timeout ]; then
             echo "Warning: port $port still in use after ${timeout}s, trying kill -9..."
-            # 找到占用端口的进程并强制杀掉
             if command -v lsof >/dev/null 2>&1; then
                 lsof -ti :$port | xargs -r kill -9 2>/dev/null || true
             elif command -v ss >/dev/null 2>&1; then
@@ -98,7 +102,6 @@ restart_service() {
     local old_pid=${!pid_var}
     kill $old_pid 2>/dev/null || true
     # 1) 等进程彻底退出
-    local wait_pid=0
     local start_wait=$(date +%s)
     while kill -0 $old_pid 2>/dev/null; do
         if [ $(($(date +%s) - start_wait)) -gt 10 ]; then
@@ -109,9 +112,11 @@ restart_service() {
         fi
         sleep 0.2
     done
-    # 2) 再等端口释放
+    # 2) 激进清理端口 (SO_REUSEADDR 也需内核释放，强制等待)
     wait_port_free $port
-    # 3) 启动新进程
+    # 3) 额外等待 1s 确保内核完全释放
+    sleep 1
+    # 4) 启动新进程
     $start_func
     eval "$pid_var=\\$!"
     eval "$mtime_var=\\$(get_mtime ./tmp/$name)"

@@ -1,6 +1,8 @@
 #!/bin/bash
-# start-services.sh - 启动所有 API 服务 + RPC 服务，配合 air 热加载
-# 监控 tmp/ 下的二进制文件变化，自动重启对应服务
+# start-services.sh - 启动所有 API 服务 + RPC 服务，配合每服务独立的 air 热加载
+# air (.air.<service>.toml) 只监听对应服务目录并编译到 tmp/，
+# 本脚本监控 tmp/ 下二进制文件变化，只重启发生变化的那个服务
+# 兼容 Linux(容器 /usr/src/code) 和 macOS(本地脚本目录)
 
 set -e
 
@@ -27,37 +29,46 @@ go build -o ./tmp/product_rpc ./service/product/rpc
 go build -o ./tmp/order_rpc ./service/order/rpc
 go build -o ./tmp/pay_rpc ./service/pay/rpc
 
-# 记录二进制文件的修改时间
+# 二进制签名 = "mtime(秒):size"，同时兼容 GNU stat(Linux) 与 BSD stat(macOS)
+# 相比只比较 mtime，加 size 可避免同秒内两次构建(秒级 mtime 相同)漏检
 get_mtime() {
-    stat -c %Y "$1" 2>/dev/null || echo 0
+    stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null || echo 0
 }
 
-USER_API_MTIME=$(get_mtime ./tmp/user_api)
-PRODUCT_API_MTIME=$(get_mtime ./tmp/product_api)
-ORDER_API_MTIME=$(get_mtime ./tmp/order_api)
-PAY_API_MTIME=$(get_mtime ./tmp/pay_api)
-USER_RPC_MTIME=$(get_mtime ./tmp/user_rpc)
-PRODUCT_RPC_MTIME=$(get_mtime ./tmp/product_rpc)
-ORDER_RPC_MTIME=$(get_mtime ./tmp/order_rpc)
-PAY_RPC_MTIME=$(get_mtime ./tmp/pay_rpc)
+get_size() {
+    stat -c %s "$1" 2>/dev/null || stat -f %z "$1" 2>/dev/null || echo 0
+}
+
+get_sig() {
+    echo "$(get_mtime "$1"):$(get_size "$1")"
+}
+
+USER_API_SIG=$(get_sig ./tmp/user_api)
+PRODUCT_API_SIG=$(get_sig ./tmp/product_api)
+ORDER_API_SIG=$(get_sig ./tmp/order_api)
+PAY_API_SIG=$(get_sig ./tmp/pay_api)
+USER_RPC_SIG=$(get_sig ./tmp/user_rpc)
+PRODUCT_RPC_SIG=$(get_sig ./tmp/product_rpc)
+ORDER_RPC_SIG=$(get_sig ./tmp/order_rpc)
+PAY_RPC_SIG=$(get_sig ./tmp/pay_rpc)
 
 # 等待端口释放
 wait_port_free() {
     local port=$1
     local timeout=15
     local start=$(date +%s)
-    # 使用多种方式检查端口
+    # 使用多种方式检查端口 (lsof 同时兼容 macOS/Linux，优先)
     while true; do
         local PORT_IN_USE=0
-        if command -v ss >/dev/null 2>&1; then
+        if command -v lsof >/dev/null 2>&1; then
+            lsof -i :$port 2>/dev/null | grep -q LISTEN && PORT_IN_USE=1
+        elif command -v ss >/dev/null 2>&1; then
             ss -tlnp 2>/dev/null | grep -q ":$port " && PORT_IN_USE=1
             # 也检查 TIME_WAIT
             ss -tanp 2>/dev/null | grep -q ":$port " && PORT_IN_USE=1
         elif command -v netstat >/dev/null 2>&1; then
             netstat -tlnp 2>/dev/null | grep -q ":$port " && PORT_IN_USE=1
             netstat -tanp 2>/dev/null | grep -q ":$port " && PORT_IN_USE=1
-        elif command -v lsof >/dev/null 2>&1; then
-            lsof -i :$port 2>/dev/null | grep -q LISTEN && PORT_IN_USE=1
         else
             (timeout 1 bash -c "cat < /dev/null > /dev/tcp/127.0.0.1/$port" 2>/dev/null) && PORT_IN_USE=1
         fi
@@ -90,14 +101,24 @@ start_product_api() { ./tmp/product_api -f ./service/product/api/etc/product.yam
 start_order_api() { ./tmp/order_api -f ./service/order/api/etc/order.yaml & }
 start_pay_api() { ./tmp/pay_api -f ./service/pay/api/etc/pay.yaml & }
 
+# 每服务"重启中"标记 (bash3 兼容写法)，避免同一服务在重启期间被再次触发导致并发重启竞态
+restart_busy() {
+    local flag
+    eval "flag=\${RESTARTING_$1:-0}"
+    [ "$flag" = "1" ]
+}
+set_busy()   { eval "RESTARTING_$1=1"; }
+clear_busy() { eval "RESTARTING_$1=0"; }
+
 # 重启单个服务
 restart_service() {
     local name=$1
     local pid_var=$2
-    local mtime_var=$3
+    local sig_var=$3
     local start_func=$4
     local port=$5
-    
+
+    set_busy "$name"
     echo "[hot-reload] $name binary updated, restarting..."
     local old_pid=${!pid_var}
     kill $old_pid 2>/dev/null || true
@@ -114,16 +135,16 @@ restart_service() {
     done
     # 2) 激进清理端口
     wait_port_free $port
-    # 3) 等二进制写完整且是合法 ELF（避免 air 写到一半就被检测到）
+    # 3) 等二进制写完整且是合法可执行文件（避免 air 写到一半就被检测到）
     local bin_path="./tmp/$name"
     local max_wait=15
     local start_bin=$(date +%s)
     while true; do
         # 检查文件大小稳定
-        local curr_size=$(stat -c %s "$bin_path" 2>/dev/null || echo 0)
+        local curr_size=$(get_size "$bin_path")
         if [ "$curr_size" -gt 0 ]; then
-            # 检查是否为合法 ELF 可执行文件
-            if file "$bin_path" 2>/dev/null | grep -q "ELF.*executable"; then
+            # ELF(Linux/容器) / Mach-O(macOS 本地) 均为合法可执行文件
+            if file "$bin_path" 2>/dev/null | grep -q "executable"; then
                 echo "[hot-reload] $name binary ready (size: $curr_size)"
                 break
             fi
@@ -139,8 +160,9 @@ restart_service() {
     # 5) 启动新进程
     $start_func
     eval "$pid_var=\\$!"
-    eval "$mtime_var=\\$(get_mtime ./tmp/$name)"
+    eval "$sig_var=\\$(get_sig ./tmp/$name)"
     echo "[hot-reload] $name restarted (new pid ${!pid_var})"
+    clear_busy "$name"
 }
 
 # 启动所有服务
@@ -155,48 +177,29 @@ start_pay_api; PAY_API_PID=$!
 
 echo "Started all 8 services (4 RPC + 4 API)"
 
-# 监控循环：每 2 秒检查二进制是否更新
+# 监控循环：每 2 秒检查二进制签名，只重启签名(内容)发生变化的服务
 while true; do
     sleep 2
-    
-    # 检查每个服务的二进制是否有新版本
-    NEW_MTIME=$(get_mtime ./tmp/user_rpc)
-    if [ "$NEW_MTIME" -gt "$USER_RPC_MTIME" ]; then
-        restart_service "user_rpc" USER_RPC_PID USER_RPC_MTIME start_user_rpc 9000
-    fi
-    
-    NEW_MTIME=$(get_mtime ./tmp/product_rpc)
-    if [ "$NEW_MTIME" -gt "$PRODUCT_RPC_MTIME" ]; then
-        restart_service "product_rpc" PRODUCT_RPC_PID PRODUCT_RPC_MTIME start_product_rpc 9001
-    fi
-    
-    NEW_MTIME=$(get_mtime ./tmp/order_rpc)
-    if [ "$NEW_MTIME" -gt "$ORDER_RPC_MTIME" ]; then
-        restart_service "order_rpc" ORDER_RPC_PID ORDER_RPC_MTIME start_order_rpc 9002
-    fi
-    
-    NEW_MTIME=$(get_mtime ./tmp/pay_rpc)
-    if [ "$NEW_MTIME" -gt "$PAY_RPC_MTIME" ]; then
-        restart_service "pay_rpc" PAY_RPC_PID PAY_RPC_MTIME start_pay_rpc 9003
-    fi
-    
-    NEW_MTIME=$(get_mtime ./tmp/user_api)
-    if [ "$NEW_MTIME" -gt "$USER_API_MTIME" ]; then
-        restart_service "user_api" USER_API_PID USER_API_MTIME start_user_api 8000
-    fi
-    
-    NEW_MTIME=$(get_mtime ./tmp/product_api)
-    if [ "$NEW_MTIME" -gt "$PRODUCT_API_MTIME" ]; then
-        restart_service "product_api" PRODUCT_API_PID PRODUCT_API_MTIME start_product_api 8001
-    fi
-    
-    NEW_MTIME=$(get_mtime ./tmp/order_api)
-    if [ "$NEW_MTIME" -gt "$ORDER_API_MTIME" ]; then
-        restart_service "order_api" ORDER_API_PID ORDER_API_MTIME start_order_api 8002
-    fi
-    
-    NEW_MTIME=$(get_mtime ./tmp/pay_api)
-    if [ "$NEW_MTIME" -gt "$PAY_API_MTIME" ]; then
-        restart_service "pay_api" PAY_API_PID PAY_API_MTIME start_pay_api 8003
-    fi
+
+    for name in user_rpc product_rpc order_rpc pay_rpc user_api product_api order_api pay_api; do
+        # 该服务正在重启中则跳过，等重启完成后再检测，避免并发重启同一服务
+        restart_busy "$name" && continue
+
+        NAME_UP=$(echo "$name" | tr '[:lower:]' '[:upper:]')
+        eval "CURR_SIG=\$${NAME_UP}_SIG"
+        NEW_SIG=$(get_sig ./tmp/$name)
+
+        if [ "$NEW_SIG" != "$CURR_SIG" ]; then
+            case $name in
+                user_rpc) restart_service "user_rpc" USER_RPC_PID USER_RPC_SIG start_user_rpc 9000 ;;
+                product_rpc) restart_service "product_rpc" PRODUCT_RPC_PID PRODUCT_RPC_SIG start_product_rpc 9001 ;;
+                order_rpc) restart_service "order_rpc" ORDER_RPC_PID ORDER_RPC_SIG start_order_rpc 9002 ;;
+                pay_rpc) restart_service "pay_rpc" PAY_RPC_PID PAY_RPC_SIG start_pay_rpc 9003 ;;
+                user_api) restart_service "user_api" USER_API_PID USER_API_SIG start_user_api 8000 ;;
+                product_api) restart_service "product_api" PRODUCT_API_PID PRODUCT_API_SIG start_product_api 8001 ;;
+                order_api) restart_service "order_api" ORDER_API_PID ORDER_API_SIG start_order_api 8002 ;;
+                pay_api) restart_service "pay_api" PAY_API_PID PAY_API_SIG start_pay_api 8003 ;;
+            esac
+        fi
+    done
 done

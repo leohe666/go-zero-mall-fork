@@ -1,0 +1,27 @@
+# .air.pay_rpc.toml - pay_rpc 热加载配置：只监听 service/pay/rpc 目录，只编译 pay_rpc 一个二进制
+# 配合 start-services.sh：tmp/pay_rpc 二进制变化时只重启 pay_rpc 对应服务
+root = "."
+tmp_dir = "tmp"
+
+[build]
+cmd = "go build -o ./tmp/pay_rpc ./service/pay/rpc"
+bin = ""
+full_bin = "true"
+include_ext = ["go", "yaml", "yml"]
+exclude_dir = ["data", "tmp", "vendor", ".git"]
+include_dir = ["service/pay/rpc"]
+log = "build-errors.pay_rpc.log"
+# 防抖：文件变化后等待 500ms 再触发构建，避免保存时多次触发
+delay = 500
+
+[log]
+time = true
+
+[color]
+main = "magenta"
+watcher = "cyan"
+build = "yellow"
+runner = "green"
+
+[misc]
+clean_on_exit = true

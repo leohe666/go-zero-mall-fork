@@ -6,6 +6,14 @@
 #      make stop        # 停止所有后台进程
 #      make clean       # 清理编译产物
 
+# 自动检测工作目录: 容器里是 /usr/src/code, 本地是当前目录
+WORKDIR := $(shell pwd)
+ifeq ($(wildcard /usr/src/code/go.mod),)
+  CODE_DIR := $(WORKDIR)
+else
+  CODE_DIR := /usr/src/code
+endif
+
 .PHONY: run build air services stop clean help
 
 # 默认目标
@@ -21,7 +29,7 @@ help:
 # 启动完整开发环境: air (后台) + start-services.sh (前台)
 run:
 	@echo "=== Starting dev environment with hot-reload ==="
-	@cd /usr/src/code && air -c .air.toml & \
+	@cd $(CODE_DIR) && air -c .air.toml & \
 	AIR_PID=$$!; \
 	echo "air started (pid $$AIR_PID)"; \
 	trap "kill $$AIR_PID 2>/dev/null; exit" INT TERM; \
@@ -30,7 +38,7 @@ run:
 # 仅编译 8 个服务
 build:
 	@echo "=== Building 8 services to tmp/ ==="
-	@cd /usr/src/code && \
+	@cd $(CODE_DIR) && \
 	go build -o ./tmp/user_api ./service/user/api && \
 	go build -o ./tmp/product_api ./service/product/api && \
 	go build -o ./tmp/order_api ./service/order/api && \
@@ -44,12 +52,12 @@ build:
 # 仅跑 air (后台编译触发器)
 air:
 	@echo "=== Running air file watcher ==="
-	@cd /usr/src/code && air -c .air.toml
+	@cd $(CODE_DIR) && air -c .air.toml
 
 # 仅跑进程守护 (需 air 在别处跑)
 services:
 	@echo "=== Running service supervisor ==="
-	@cd /usr/src/code && ./start-services.sh
+	@cd $(CODE_DIR) && ./start-services.sh
 
 # 停止所有相关进程
 stop:
@@ -62,5 +70,5 @@ stop:
 # 清理编译产物
 clean:
 	@echo "=== Cleaning tmp/ ==="
-	@cd /usr/src/code && rm -rf tmp/ build-errors.log
+	@cd $(CODE_DIR) && rm -rf tmp/ build-errors.log
 	@echo "Cleaned"

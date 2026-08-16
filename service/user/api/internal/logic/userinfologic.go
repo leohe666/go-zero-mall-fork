@@ -3,6 +3,7 @@ package logic
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"mall/service/user/api/internal/svc"
@@ -47,12 +48,13 @@ func (l *UserInfoLogic) UserInfo() (resp *types.UserInfoResponse, err error) {
 	if span := trace.SpanFromContext(l.ctx); span != nil && span.SpanContext().HasTraceID() {
 		traceID = span.SpanContext().TraceID().String()
 	}
-	l.Infof("userinfo request received",
+	l.Infof("userinfo request received6",
 		logx.Field("trace_id", traceID),
 		logx.Field("client_ip", clientIPStr),
 		logx.Field("uid", uid),
 		logx.Field("timestamp", time.Now().Format(time.RFC3339)),
 	)
+	fmt.Println("aaaa")
 
 	res, err := l.svcCtx.UserRpc.UserInfo(l.ctx, &user.UserInfoRequest{
 		Id: uid,
@@ -80,3 +82,22 @@ func (l *UserInfoLogic) UserInfo() (resp *types.UserInfoResponse, err error) {
 		Mobile: res.Mobile,
 	}, nil
 }
+
+// test hot reload
+// hot reload test
+// hot reload test 2
+// hot reload test 3 -  2026年 8月15日 星期六 14时58分17秒 CST
+// hot reload test 4 -  2026年 8月15日 星期六 15时07分33秒 CST
+// hot reload test 5 -  2026年 8月15日 星期六 15时15分41秒 CST
+// hot reload test 6 -  2026年 8月15日 星期六 15时21分47秒 CST
+// verify hot-reload  1786778956
+// test restart fix  Sat Aug 15 19:52:10 CST 2026
+// test restart fix 2  Sat Aug 15 19:57:27 CST 2026
+// test restart fix 3  Sat Aug 15 20:05:12 CST 2026
+// test restart fix 4  Sat Aug 15 20:10:36 CST 2026
+// only user_api change  Sat Aug 15 21:03:34 CST 2026
+// test binary stable wait  Sat Aug 15 21:26:09 CST 2026
+// test ELF wait  Sat Aug 15 21:31:24 CST 2026
+// test ELF wait v2  Sat Aug 15 21:39:23 CST 2026
+// final verification  Sat Aug 15 21:49:23 CST 2026
+// test debounce  Sat Aug 15 21:56:10 CST 2026

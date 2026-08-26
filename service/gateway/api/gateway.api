@@ -1,0 +1,192 @@
+syntax = "v1"
+
+type (
+	// Order Types
+	OrderCreateRequest {
+		Uid    int64 `json:"uid"`
+		Pid    int64 `json:"pid"`
+		Amount int64 `json:"amount"`
+		Status int64 `json:"status"`
+	}
+	OrderCreateResponse {
+		Id int64 `json:"id"`
+	}
+	OrderUpdateRequest {
+		Id     int64 `json:"id"`
+		Uid    int64 `json:"uid,optional"`
+		Pid    int64 `json:"pid,optional"`
+		Amount int64 `json:"amount,optional"`
+		Status int64 `json:"status,optional"`
+	}
+	OrderUpdateResponse  {}
+	OrderRemoveRequest {
+		Id int64 `json:"id"`
+	}
+	OrderRemoveResponse  {}
+	OrderDetailRequest {
+		Id int64 `json:"id"`
+	}
+	OrderDetailResponse {
+		Id     int64 `json:"id"`
+		Uid    int64 `json:"uid"`
+		Pid    int64 `json:"pid"`
+		Amount int64 `json:"amount"`
+		Status int64 `json:"status"`
+	}
+	OrderListRequest {
+		Uid int64 `json:"uid"`
+	}
+	OrderListResponse {
+		Data []OrderDetailResponse `json:"data"`
+	}
+	// Pay Types
+	PayCreateRequest {
+		Uid    int64 `json:"uid"`
+		Oid    int64 `json:"oid"`
+		Amount int64 `json:"amount"`
+	}
+	PayCreateResponse {
+		Id int64 `json:"id"`
+	}
+	PayDetailRequest {
+		Id int64 `json:"id"`
+	}
+	PayDetailResponse {
+		Id     int64 `json:"id"`
+		Uid    int64 `json:"uid"`
+		Oid    int64 `json:"oid"`
+		Amount int64 `json:"amount"`
+		Source int64 `json:"source"`
+		Status int64 `json:"status"`
+	}
+	PayCallbackRequest {
+		Id     int64 `json:"id"`
+		Uid    int64 `json:"uid"`
+		Oid    int64 `json:"oid"`
+		Amount int64 `json:"amount"`
+		Source int64 `json:"source"`
+		Status int64 `json:"status"`
+	}
+	PayCallbackResponse  {}
+	// Product Types
+	ProductCreateRequest {
+		Name   string `json:"name"`
+		Desc   string `json:"desc"`
+		Stock  int64  `json:"stock"`
+		Amount int64  `json:"amount"`
+		Status int64  `json:"status"`
+	}
+	ProductCreateResponse {
+		Id int64 `json:"id"`
+	}
+	ProductUpdateRequest {
+		Id     int64  `json:"id"`
+		Name   string `json:"name,optional"`
+		Desc   string `json:"desc,optional"`
+		Stock  int64  `json:"stock"`
+		Amount int64  `json:"amount,optional"`
+		Status int64  `json:"status,optional"`
+	}
+	ProductUpdateResponse  {}
+	ProductRemoveRequest {
+		Id int64 `json:"id"`
+	}
+	ProductRemoveResponse  {}
+	ProductDetailRequest {
+		Id int64 `json:"id"`
+	}
+	ProductDetailResponse {
+		Id     int64  `json:"id"`
+		Name   string `json:"name"`
+		Desc   string `json:"desc"`
+		Stock  int64  `json:"stock"`
+		Amount int64  `json:"amount"`
+		Status int64  `json:"status"`
+	}
+	// User Types
+	UserLoginRequest {
+		Mobile   string `json:"mobile"`
+		Password string `json:"password"`
+	}
+	UserLoginResponse {
+		AccessToken  string `json:"accessToken"`
+		AccessExpire int64  `json:"accessExpire"`
+	}
+	UserRegisterRequest {
+		Name     string `json:"name"`
+		Gender   int64  `json:"gender"`
+		Mobile   string `json:"mobile"`
+		Password string `json:"password"`
+	}
+	UserRegisterResponse {
+		Id     int64  `json:"id"`
+		Name   string `json:"name"`
+		Gender int64  `json:"gender"`
+		Mobile string `json:"mobile"`
+	}
+	UserInfoResponse {
+		Id     int64  `json:"id"`
+		Name   string `json:"name"`
+		Gender int64  `json:"gender"`
+		Mobile string `json:"mobile"`
+	}
+)
+
+// No Auth needed
+service Gateway {
+	@handler UserLogin
+	post /api/user/login (UserLoginRequest) returns (UserLoginResponse)
+
+	@handler UserRegister
+	post /api/user/register (UserRegisterRequest) returns (UserRegisterResponse)
+}
+
+// Auth needed
+@server (
+	jwt: Auth
+)
+service Gateway {
+	// User
+	@handler UserInfo
+	post /api/user/userinfo returns (UserInfoResponse)
+
+	// Order
+	@handler OrderCreate
+	post /api/order/create (OrderCreateRequest) returns (OrderCreateResponse)
+
+	@handler OrderUpdate
+	post /api/order/update (OrderUpdateRequest) returns (OrderUpdateResponse)
+
+	@handler OrderRemove
+	post /api/order/remove (OrderRemoveRequest) returns (OrderRemoveResponse)
+
+	@handler OrderDetail
+	post /api/order/detail (OrderDetailRequest) returns (OrderDetailResponse)
+
+	@handler OrderList
+	post /api/order/list (OrderListRequest) returns (OrderListResponse)
+
+	// Pay
+	@handler PayCreate
+	post /api/pay/create (PayCreateRequest) returns (PayCreateResponse)
+
+	@handler PayDetail
+	post /api/pay/detail (PayDetailRequest) returns (PayDetailResponse)
+
+	@handler PayCallback
+	post /api/pay/callback (PayCallbackRequest) returns (PayCallbackResponse)
+
+	// Product
+	@handler ProductCreate
+	post /api/product/create (ProductCreateRequest) returns (ProductCreateResponse)
+
+	@handler ProductUpdate
+	post /api/product/update (ProductUpdateRequest) returns (ProductUpdateResponse)
+
+	@handler ProductRemove
+	post /api/product/remove (ProductRemoveRequest) returns (ProductRemoveResponse)
+
+	@handler ProductDetail
+	post /api/product/detail (ProductDetailRequest) returns (ProductDetailResponse)
+}
+

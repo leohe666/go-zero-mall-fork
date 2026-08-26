@@ -1,0 +1,42 @@
+Name: gateway-api
+Host: 0.0.0.0
+Port: 8888
+
+Auth:
+  AccessSecret: u46ipHAzMD2I4CH4lyz0NxZzEWQ5jQ6n
+  AccessExpire: 86400
+
+UserRpc:
+  Etcd:
+    Hosts:
+      - etcd:2379
+    Key: user.rpc
+
+OrderRpc:
+  Etcd:
+    Hosts:
+      - etcd:2379
+    Key: order.rpc
+
+ProductRpc:
+  Etcd:
+    Hosts:
+      - etcd:2379
+    Key: product.rpc
+
+PayRpc:
+  Etcd:
+    Hosts:
+      - etcd:2379
+    Key: pay.rpc
+
+Telemetry:
+  Name: gateway-api
+  Endpoint: jaeger:4317
+  Sampler: 1.0
+  Batcher: otlpgrpc
+
+Prometheus:
+  Host: 0.0.0.0
+  Port: 9088
+  Path: /metrics

@@ -1,21 +1,13 @@
-// Code scaffolded by goctl. Safe to edit.
-// goctl 1.9.2
-
 package config
 
 import (
-	"github.com/zeromicro/go-zero/rest"
-	"github.com/zeromicro/go-zero/zrpc"
+	"github.com/zeromicro/go-zero/gateway"
 )
 
+// Config 是纯透传网关的配置。
+//
+// 方案 B：网关只做 HTTP -> gRPC 透传（由 GatewayConf.Upstreams 驱动，零业务代码），
+// 不再承载 JWT 签发与聚合编排；那些接口已拆到独立 BFF 服务 service/bff/api。
 type Config struct {
-	rest.RestConf
-	Auth struct {
-		AccessSecret string
-		AccessExpire int64
-	}
-	UserRpc    zrpc.RpcClientConf
-	OrderRpc   zrpc.RpcClientConf
-	ProductRpc zrpc.RpcClientConf
-	PayRpc     zrpc.RpcClientConf
+	gateway.GatewayConf
 }

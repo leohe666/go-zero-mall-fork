@@ -1,5 +1,6 @@
 Name: order.rpc
 ListenOn: 0.0.0.0:9002
+Mode: dev
 
 Etcd:
   Hosts:

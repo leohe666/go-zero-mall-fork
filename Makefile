@@ -1,7 +1,7 @@
 # Makefile - go-zero 微服务开发命令
-# 用法: make run        # 启动 8 个 air (每服务独立) + start-services.sh 进程守护
-#      make build       # 仅编译 8 个服务到 tmp/
-#      make air         # 仅跑 8 个 air 监听编译 (后台)
+# 用法: make run        # 启动 10 个 air (每服务独立) + start-services.sh 进程守护
+#      make build       # 仅编译 10 个服务到 tmp/
+#      make air         # 仅跑 10 个 air 监听编译 (后台)
 #      make services    # 仅跑 start-services.sh 进程守护
 #      make logs        # 查看指定服务的 air 输出: make logs svc=user_api
 #      make stop        # 停止所有后台进程
@@ -15,33 +15,38 @@ else
   CODE_DIR := /usr/src/code
 endif
 
-# 9 个服务对应的 air 配置 (8 个业务服务 + 1 个 BFF 网关)
+# 10 个服务对应的 air 配置 (8 个业务服务 + 1 个统一网关 + 1 个 BFF)
 AIR_CONFIGS := .air.user_api.toml .air.product_api.toml .air.order_api.toml .air.pay_api.toml \
                .air.user_rpc.toml .air.product_rpc.toml .air.order_rpc.toml .air.pay_rpc.toml \
-               .air.gateway_api.toml
+               .air.gateway_api.toml .air.bff_api.toml
 
 # BFF Gateway 配置
 AIR_GATEWAY_API := .air.gateway_api.toml
 
-.PHONY: run build air services logs stop clean help gateway gateway-build gateway-air
+.PHONY: run build air services logs stop clean help gateway gateway-build gateway-air bff bff-build bff-air
 
 # 默认目标
 help:
 	@echo "可用命令:"
-	@echo "  make run       - 启动开发环境 (9个 air 独立盯每服务 + 进程守护)"
-	@echo "  make build     - 仅编译 9 个服务到 tmp/"
-	@echo "  make air       - 仅运行 9 个 air 监听文件变化并编译 (后台)"
+	@echo "  make run       - 启动开发环境 (10个 air 独立盯每服务 + 进程守护)"
+	@echo "  make build     - 仅编译 10 个服务到 tmp/"
+	@echo "  make air       - 仅运行 10 个 air 监听文件变化并编译 (后台)"
 	@echo "  make services  - 仅运行进程守护 (需 air 在后台跑)"
 	@echo "  make logs      - 查看指定服务 air 输出: make logs svc=user_api"
 	@echo "  make stop      - 停止所有后台进程"
 	@echo "  make clean     - 清理 tmp/ 目录"
 	@echo ""
 	@echo "BFF Gateway 命令:"
-	@echo "  make gateway       - 单独启动统一 BFF 网关 (air 热加载 + 运行)"
-	@echo "  make gateway-build - 仅编译 BFF 网关"
-	@echo "  make gateway-air   - 仅运行 BFF 网关 air 监听 (后台)"
+	@echo "  make gateway       - 单独启动统一透传网关 (air 热加载 + 运行)"
+	@echo "  make gateway-build - 仅编译透传网关"
+	@echo "  make gateway-air   - 仅运行透传网关 air 监听 (后台)"
+	@echo ""
+	@echo "BFF 命令:"
+	@echo "  make bff       - 单独启动 BFF 聚合编排服务 (air 热加载 + 运行)"
+	@echo "  make bff-build - 仅编译 BFF 服务"
+	@echo "  make bff-air   - 仅运行 BFF air 监听 (后台)"
 
-# 启动完整开发环境: 9 个 air (后台, 输出各自日志) + start-services.sh (前台)
+# 启动完整开发环境: 10 个 air (后台, 输出各自日志) + start-services.sh (前台)
 run:
 	@echo "=== Starting dev environment with per-service hot-reload ==="
 	@cd $(CODE_DIR) && \
@@ -54,9 +59,9 @@ run:
 	trap "pkill -f 'air -c .air' 2>/dev/null; exit" INT TERM; \
 	./start-services.sh
 
-# 仅编译 9 个服务
+# 仅编译 10 个服务
 build:
-	@echo "=== Building 9 services to tmp/ ==="
+	@echo "=== Building 10 services to tmp/ ==="
 	@cd $(CODE_DIR) && \
 	go build -o ./tmp/user_api ./service/user/api && \
 	go build -o ./tmp/product_api ./service/product/api && \
@@ -67,11 +72,12 @@ build:
 	go build -o ./tmp/order_rpc ./service/order/rpc && \
 	go build -o ./tmp/pay_rpc ./service/pay/rpc && \
 	go build -o ./tmp/gateway_api ./service/gateway/api && \
-	echo "Build done: 9 binaries in tmp/"
+	go build -o ./tmp/bff_api ./service/bff/api && \
+	echo "Build done: 10 binaries in tmp/"
 
-# 仅跑 9 个 air (后台编译触发器)
+# 仅跑 10 个 air (后台编译触发器)
 air:
-	@echo "=== Running 9 air file watchers (per-service) ==="
+	@echo "=== Running 10 air file watchers (per-service) ==="
 	@cd $(CODE_DIR) && \
 	mkdir -p tmp && \
 	for cfg in $(AIR_CONFIGS); do \
@@ -79,7 +85,7 @@ air:
 	  air -c $$cfg > tmp/air.$$name.log 2>&1 & \
 	  echo "air $$cfg started (pid $$!) -> tmp/air.$$name.log"; \
 	done; \
-	echo "All 9 air watchers running in background"; \
+	echo "All 10 air watchers running in background"; \
 	echo "Run 'make services' in another terminal to start services"
 
 # 查看指定服务的 air 输出 (实时): make logs svc=user_api
@@ -111,9 +117,9 @@ clean:
 	@cd $(CODE_DIR) && rm -rf tmp/ build-errors.log
 	@echo "Cleaned"
 
-# BFF Gateway (统一门面网关): 启动完整开发环境 (air + 运行)
+# BFF Gateway (统一透传网关): 启动完整开发环境 (air + 运行)
 gateway:
-	@echo "=== Starting BFF Gateway with hot-reload ==="
+	@echo "=== Starting passthrough Gateway with hot-reload ==="
 	@cd $(CODE_DIR) && \
 	mkdir -p tmp && \
 	air -c $(AIR_GATEWAY_API) > tmp/air.gateway_api.log 2>&1 & \
@@ -123,17 +129,44 @@ gateway:
 
 # 仅编译 BFF Gateway
 gateway-build:
-	@echo "=== Building BFF Gateway to tmp/ ==="
+	@echo "=== Building passthrough Gateway to tmp/ ==="
 	@cd $(CODE_DIR) && \
 	go build -o ./tmp/gateway_api ./service/gateway/api && \
 	echo "Build done: gateway_api in tmp/"
 
 # 仅跑 BFF Gateway air (后台编译触发器)
 gateway-air:
-	@echo "=== Running BFF Gateway air file watcher ==="
+	@echo "=== Running passthrough Gateway air file watcher ==="
 	@cd $(CODE_DIR) && \
 	mkdir -p tmp && \
 	air -c $(AIR_GATEWAY_API) > tmp/air.gateway_api.log 2>&1 & \
 	echo "air $(AIR_GATEWAY_API) started (pid $$!) -> tmp/air.gateway_api.log"; \
-	echo "BFF Gateway air watcher running in background"; \
+	echo "Gateway air watcher running in background"; \
 	echo "Run './tmp/gateway_api -f ./service/gateway/api/etc/gateway.yaml' to start"
+
+# BFF (聚合编排服务): 启动完整开发环境 (air + 运行)
+bff:
+	@echo "=== Starting BFF aggregation service with hot-reload ==="
+	@cd $(CODE_DIR) && \
+	mkdir -p tmp && \
+	air -c .air.bff_api.toml > tmp/air.bff_api.log 2>&1 & \
+	echo "air .air.bff_api.toml started (pid $$!) -> tmp/air.bff_api.log"; \
+	trap "pkill -f 'air -c .air.bff_api' 2>/dev/null; exit" INT TERM; \
+	./tmp/bff_api -f ./service/bff/api/etc/bff.yaml
+
+# 仅编译 BFF
+bff-build:
+	@echo "=== Building BFF to tmp/ ==="
+	@cd $(CODE_DIR) && \
+	go build -o ./tmp/bff_api ./service/bff/api && \
+	echo "Build done: bff_api in tmp/"
+
+# 仅跑 BFF air (后台编译触发器)
+bff-air:
+	@echo "=== Running BFF air file watcher ==="
+	@cd $(CODE_DIR) && \
+	mkdir -p tmp && \
+	air -c .air.bff_api.toml > tmp/air.bff_api.log 2>&1 & \
+	echo "air .air.bff_api.toml started (pid $$!) -> tmp/air.bff_api.log"; \
+	echo "BFF air watcher running in background"; \
+	echo "Run './tmp/bff_api -f ./service/bff/api/etc/bff.yaml' to start"

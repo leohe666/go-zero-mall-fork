@@ -1,42 +1,121 @@
-Name: gateway-api
+# =============================================================================
+# 纯透传网关：一个进程、一个端口 (8888)，只做 HTTP -> gRPC 透传。
+#
+# 方案 B：聚合/编排接口（login / userinfo / aggregate）已拆到独立 BFF 服务
+#   service/bff/api（端口 8887），本网关不再承载任何业务代码。
+#
+# 转发方式 (Upstreams)：
+#   纯 HTTP -> gRPC 透传，零业务代码。服务发现 + 负载均衡
+#   由 zrpc 客户端通过 etcd 完成。适合简单的增删改查/透传接口。
+#
+#   注意：转发方式依赖下游 RPC 服务开启 reflection（各 rpc 服务已配置 Mode: dev）。
+# =============================================================================
+Name: gateway
 Host: 0.0.0.0
 Port: 8888
 
-Auth:
-  AccessSecret: u46ipHAzMD2I4CH4lyz0NxZzEWQ5jQ6n
-  AccessExpire: 86400
+Upstreams:
+  # ---- 用户服务（注册走纯转发）----
+  - Name: user.rpc
+    Grpc:
+      Etcd:
+        Hosts:
+          - etcd:2379
+        Key: user.rpc
+    ProtoSets:
+      - service/gateway/api/etc/protosets/user.pb
+    Mappings:
+      - Method: post
+        Path: /api/user/register
+        RpcPath: user.User/Register
 
-UserRpc:
-  Etcd:
-    Hosts:
-      - etcd:2379
-    Key: user.rpc
+  # ---- 订单服务（增删改查走纯转发）----
+  - Name: order.rpc
+    Grpc:
+      Etcd:
+        Hosts:
+          - etcd:2379
+        Key: order.rpc
+    ProtoSets:
+      - service/gateway/api/etc/protosets/order.pb
+    Mappings:
+      - Method: post
+        Path: /api/order/create
+        RpcPath: order.Order/Create
+      - Method: post
+        Path: /api/order/update
+        RpcPath: order.Order/Update
+      - Method: post
+        Path: /api/order/remove
+        RpcPath: order.Order/Remove
+      - Method: post
+        Path: /api/order/detail
+        RpcPath: order.Order/Detail
+      - Method: post
+        Path: /api/order/list
+        RpcPath: order.Order/List
 
-OrderRpc:
-  Etcd:
-    Hosts:
-      - etcd:2379
-    Key: order.rpc
+  # ---- 商品服务（增删改查走纯转发）----
+  - Name: product.rpc
+    Grpc:
+      Etcd:
+        Hosts:
+          - etcd:2379
+        Key: product.rpc
+    ProtoSets:
+      - service/gateway/api/etc/protosets/product.pb
+    Mappings:
+      - Method: post
+        Path: /api/product/create
+        RpcPath: product.Product/Create
+      - Method: post
+        Path: /api/product/update
+        RpcPath: product.Product/Update
+      - Method: post
+        Path: /api/product/remove
+        RpcPath: product.Product/Remove
+      - Method: post
+        Path: /api/product/detail
+        RpcPath: product.Product/Detail
 
-ProductRpc:
-  Etcd:
-    Hosts:
-      - etcd:2379
-    Key: product.rpc
+  # ---- 支付服务（增删改查走纯转发）----
+  - Name: pay.rpc
+    Grpc:
+      Etcd:
+        Hosts:
+          - etcd:2379
+        Key: pay.rpc
+    ProtoSets:
+      - service/gateway/api/etc/protosets/pay.pb
+    Mappings:
+      - Method: post
+        Path: /api/pay/create
+        RpcPath: pay.Pay/Create
+      - Method: post
+        Path: /api/pay/detail
+        RpcPath: pay.Pay/Detail
+      - Method: post
+        Path: /api/pay/callback
+        RpcPath: pay.Pay/Callback
 
-PayRpc:
-  Etcd:
-    Hosts:
-      - etcd:2379
-    Key: pay.rpc
-
+# Telemetry for distributed tracing
 Telemetry:
-  Name: gateway-api
+  Name: gateway
   Endpoint: jaeger:4317
   Sampler: 1.0
   Batcher: otlpgrpc
 
+# Prometheus metrics
 Prometheus:
   Host: 0.0.0.0
   Port: 9088
   Path: /metrics
+
+# Logging
+Log:
+  ServiceName: gateway
+  Mode: file
+  Encoding: json
+  Path: /var/log/golang
+  Level: info
+  TimeFormat: "2006-01-02T15:04:05.000Z07:00"

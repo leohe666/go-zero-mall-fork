@@ -1,5 +1,6 @@
 Name: pay.rpc
 ListenOn: 0.0.0.0:9003
+Mode: dev
 
 UserRpc:
   Etcd:

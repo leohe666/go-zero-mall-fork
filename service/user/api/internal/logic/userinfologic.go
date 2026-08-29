@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"time"
 
 	"mall/service/user/api/internal/svc"
@@ -54,8 +55,11 @@ func (l *UserInfoLogic) UserInfo() (resp *types.UserInfoResponse, err error) {
 		logx.Field("uid", uid),
 		logx.Field("timestamp", time.Now().Format(time.RFC3339)),
 	)
-	fmt.Println("aaaa")
+	// panic("test: reached logic layer")
 
+	// return nil, fmt.Errorf("模拟内部错误")
+
+	fmt.Println("aaaa", http.StatusInternalServerError)
 	res, err := l.svcCtx.UserRpc.UserInfo(l.ctx, &user.UserInfoRequest{
 		Id: uid,
 	})

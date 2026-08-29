@@ -1,5 +1,6 @@
 Name: product.rpc
 ListenOn: 0.0.0.0:9001
+Mode: dev
 
 Etcd:
   Hosts:

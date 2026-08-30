@@ -44,8 +44,23 @@ message UserInfoResponse {
 }
 // 用户信息
 
+// 通过 Casdoor 登录（微信小程序等第三方登录落地到本地用户）
+message LoginByCasdoorRequest {
+  string CasdoorName = 1;
+  // 微信 openid（唯一），作为本地用户 mobile 字段存储，避免与手机号用户冲突
+  string OpenId = 2;
+}
+message LoginByCasdoorResponse {
+  int64 Id = 1;
+  string Name = 2;
+  int64 Gender = 3;
+  string Mobile = 4;
+  string CasdoorName = 5;
+}
+
 service User {
   rpc Login(LoginRequest) returns(LoginResponse);
   rpc Register(RegisterRequest) returns(RegisterResponse);
   rpc UserInfo(UserInfoRequest) returns(UserInfoResponse);
+  rpc LoginByCasdoor(LoginByCasdoorRequest) returns(LoginByCasdoorResponse);
 }

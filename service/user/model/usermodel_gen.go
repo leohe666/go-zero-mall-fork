@@ -22,8 +22,9 @@ var (
 	userRowsExpectAutoSet   = strings.Join(stringx.Remove(userFieldNames, "`id`", "`create_time`", "`update_time`"), ",")
 	userRowsWithPlaceHolder = strings.Join(stringx.Remove(userFieldNames, "`id`", "`create_time`", "`update_time`"), "=?,") + "=?"
 
-	cacheUserIdPrefix     = "cache:user:id:"
-	cacheUserMobilePrefix = "cache:user:mobile:"
+	cacheUserIdPrefix         = "cache:user:id:"
+	cacheUserMobilePrefix     = "cache:user:mobile:"
+	cacheUserCasdoorNamePrefix = "cache:user:casdoorName:"
 )
 
 type (
@@ -31,6 +32,7 @@ type (
 		Insert(ctx context.Context, data *User) (sql.Result, error)
 		FindOne(ctx context.Context, id int64) (*User, error)
 		FindOneByMobile(ctx context.Context, mobile string) (*User, error)
+		FindOneByCasdoorName(ctx context.Context, casdoorName string) (*User, error)
 		Update(ctx context.Context, data *User) error
 		Delete(ctx context.Context, id int64) error
 	}
@@ -41,13 +43,14 @@ type (
 	}
 
 	User struct {
-		Id         int64     `db:"id"`
-		Name       string    `db:"name"`     // 用户姓名
-		Gender     int64     `db:"gender"`   // 用户性别
-		Mobile     string    `db:"mobile"`   // 用户电话
-		Password   string    `db:"password"` // 用户密码
-		CreateTime time.Time `db:"create_time"`
-		UpdateTime time.Time `db:"update_time"`
+		Id           int64     `db:"id"`
+		Name         string    `db:"name"`         // 用户姓名
+		Gender       int64     `db:"gender"`       // 用户性别
+		Mobile       string    `db:"mobile"`       // 用户电话
+		Password     string    `db:"password"`     // 用户密码
+		CasdoorName  string    `db:"casdoor_name"` // Casdoor 用户名(微信小程序登录为 wechat-openid)
+		CreateTime   time.Time `db:"create_time"`
+		UpdateTime   time.Time `db:"update_time"`
 	}
 )
 
@@ -61,10 +64,11 @@ func newUserModel(conn sqlx.SqlConn, c cache.CacheConf) *defaultUserModel {
 func (m *defaultUserModel) Insert(ctx context.Context, data *User) (sql.Result, error) {
 	userIdKey := fmt.Sprintf("%s%v", cacheUserIdPrefix, data.Id)
 	userMobileKey := fmt.Sprintf("%s%v", cacheUserMobilePrefix, data.Mobile)
+	userCasdoorNameKey := fmt.Sprintf("%s%v", cacheUserCasdoorNamePrefix, data.CasdoorName)
 	ret, err := m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
-		query := fmt.Sprintf("insert into %s (%s) values (?, ?, ?, ?)", m.table, userRowsExpectAutoSet)
-		return conn.ExecCtx(ctx, query, data.Name, data.Gender, data.Mobile, data.Password)
-	}, userIdKey, userMobileKey)
+		query := fmt.Sprintf("insert into %s (%s) values (?, ?, ?, ?, ?)", m.table, userRowsExpectAutoSet)
+		return conn.ExecCtx(ctx, query, data.Name, data.Gender, data.Mobile, data.Password, data.CasdoorName)
+	}, userIdKey, userMobileKey, userCasdoorNameKey)
 	return ret, err
 }
 
@@ -105,13 +109,34 @@ func (m *defaultUserModel) FindOneByMobile(ctx context.Context, mobile string) (
 	}
 }
 
+func (m *defaultUserModel) FindOneByCasdoorName(ctx context.Context, casdoorName string) (*User, error) {
+	userCasdoorNameKey := fmt.Sprintf("%s%v", cacheUserCasdoorNamePrefix, casdoorName)
+	var resp User
+	err := m.QueryRowIndexCtx(ctx, &resp, userCasdoorNameKey, m.formatPrimary, func(ctx context.Context, conn sqlx.SqlConn, v interface{}) (i interface{}, e error) {
+		query := fmt.Sprintf("select %s from %s where `casdoor_name` = ? limit 1", userRows, m.table)
+		if err := conn.QueryRowCtx(ctx, &resp, query, casdoorName); err != nil {
+			return nil, err
+		}
+		return resp.Id, nil
+	}, m.queryPrimary)
+	switch err {
+	case nil:
+		return &resp, nil
+	case sqlc.ErrNotFound:
+		return nil, ErrNotFound
+	default:
+		return nil, err
+	}
+}
+
 func (m *defaultUserModel) Update(ctx context.Context, data *User) error {
 	userIdKey := fmt.Sprintf("%s%v", cacheUserIdPrefix, data.Id)
 	userMobileKey := fmt.Sprintf("%s%v", cacheUserMobilePrefix, data.Mobile)
+	userCasdoorNameKey := fmt.Sprintf("%s%v", cacheUserCasdoorNamePrefix, data.CasdoorName)
 	_, err := m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
 		query := fmt.Sprintf("update %s set %s where `id` = ?", m.table, userRowsWithPlaceHolder)
-		return conn.ExecCtx(ctx, query, data.Name, data.Gender, data.Mobile, data.Password, data.Id)
-	}, userIdKey, userMobileKey)
+		return conn.ExecCtx(ctx, query, data.Name, data.Gender, data.Mobile, data.Password, data.CasdoorName, data.Id)
+	}, userIdKey, userMobileKey, userCasdoorNameKey)
 	return err
 }
 
@@ -123,10 +148,11 @@ func (m *defaultUserModel) Delete(ctx context.Context, id int64) error {
 
 	userIdKey := fmt.Sprintf("%s%v", cacheUserIdPrefix, id)
 	userMobileKey := fmt.Sprintf("%s%v", cacheUserMobilePrefix, data.Mobile)
+	userCasdoorNameKey := fmt.Sprintf("%s%v", cacheUserCasdoorNamePrefix, data.CasdoorName)
 	_, err = m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
 		query := fmt.Sprintf("delete from %s where `id` = ?", m.table)
 		return conn.ExecCtx(ctx, query, id)
-	}, userIdKey, userMobileKey)
+	}, userIdKey, userMobileKey, userCasdoorNameKey)
 	return err
 }
 

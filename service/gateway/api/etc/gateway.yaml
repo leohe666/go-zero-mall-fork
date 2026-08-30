@@ -18,6 +18,20 @@ Auth:
   AccessSecret: u46ipHAzMD2I4CH4lyz0NxZzEWQ5jQ6n
   AccessExpire: 86400
 
+# Casdoor SaaS 身份认证（微信小程序登录）
+# Endpoint 指向 Casdoor 实例；本地开发走 docker-compose 自建 Casdoor (http://casdoor:8000)，
+# 生产可换成云 SaaS 地址（如 https://door.casdoor.com）。
+Casdoor:
+  Endpoint: http://casdoor:8000
+  ClientId: mall-client-id
+  ClientSecret: mall-client-secret
+  Certificate: service/gateway/api/etc/casdoor-cert.pem
+  OrganizationName: mall
+  ApplicationName: mall-app
+  # 真实微信小程序凭据已配置到 Casdoor Provider (admin/provider-wechat-mp)，
+  # 走真实 jscode2session 链路；如需本地无网联调再临时置 true
+  MockMiniProgram: false
+
 # 下游 RPC 客户端（供 handler/logic 编排聚合）
 UserRpc:
   Etcd:

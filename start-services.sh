@@ -1,5 +1,6 @@
 #!/bin/bash
-# start-services.sh - 启动所有 API 服务 + RPC 服务 + 统一网关，配合每服务独立的 air 热加载
+# start-services.sh - 启动 RPC 服务 + 统一网关，配合每服务独立的 air 热加载
+# 说明: 旧 API 服务(8000-8003)已下线，统一走网关(8888)，本脚本只管理 4 RPC + 1 网关
 # air (.air.<service>.toml) 只监听对应服务目录并编译到 tmp/，
 # 本脚本监控 tmp/ 下二进制文件变化，只重启发生变化的那个服务
 # 兼容 Linux(容器 /usr/src/code) 和 macOS(本地脚本目录)
@@ -20,10 +21,6 @@ echo "=== Starting all services with air hot-reload ==="
 
 # 先编译一次
 echo "Initial build..."
-go build -o ./tmp/user_api ./service/user/api
-go build -o ./tmp/product_api ./service/product/api
-go build -o ./tmp/order_api ./service/order/api
-go build -o ./tmp/pay_api ./service/pay/api
 go build -o ./tmp/user_rpc ./service/user/rpc
 go build -o ./tmp/product_rpc ./service/product/rpc
 go build -o ./tmp/order_rpc ./service/order/rpc
@@ -44,10 +41,6 @@ get_sig() {
     echo "$(get_mtime "$1"):$(get_size "$1")"
 }
 
-USER_API_SIG=$(get_sig ./tmp/user_api)
-PRODUCT_API_SIG=$(get_sig ./tmp/product_api)
-ORDER_API_SIG=$(get_sig ./tmp/order_api)
-PAY_API_SIG=$(get_sig ./tmp/pay_api)
 USER_RPC_SIG=$(get_sig ./tmp/user_rpc)
 PRODUCT_RPC_SIG=$(get_sig ./tmp/product_rpc)
 ORDER_RPC_SIG=$(get_sig ./tmp/order_rpc)
@@ -98,10 +91,6 @@ start_user_rpc() { ./tmp/user_rpc -f ./service/user/rpc/etc/user.yaml & }
 start_product_rpc() { ./tmp/product_rpc -f ./service/product/rpc/etc/product.yaml & }
 start_order_rpc() { ./tmp/order_rpc -f ./service/order/rpc/etc/order.yaml & }
 start_pay_rpc() { ./tmp/pay_rpc -f ./service/pay/rpc/etc/pay.yaml & }
-start_user_api() { ./tmp/user_api -f ./service/user/api/etc/user.yaml & }
-start_product_api() { ./tmp/product_api -f ./service/product/api/etc/product.yaml & }
-start_order_api() { ./tmp/order_api -f ./service/order/api/etc/order.yaml & }
-start_pay_api() { ./tmp/pay_api -f ./service/pay/api/etc/pay.yaml & }
 start_gateway_api() { ./tmp/gateway_api -f ./service/gateway/api/etc/gateway.yaml & }
 
 # 每服务"重启中"标记 (bash3 兼容写法)，避免同一服务在重启期间被再次触发导致并发重启竞态
@@ -173,19 +162,15 @@ start_user_rpc; USER_RPC_PID=$!
 start_product_rpc; PRODUCT_RPC_PID=$!
 start_order_rpc; ORDER_RPC_PID=$!
 start_pay_rpc; PAY_RPC_PID=$!
-start_user_api; USER_API_PID=$!
-start_product_api; PRODUCT_API_PID=$!
-start_order_api; ORDER_API_PID=$!
-start_pay_api; PAY_API_PID=$!
 start_gateway_api; GATEWAY_API_PID=$!
 
-echo "Started all 9 services (4 RPC + 4 API + 1 Unified Gateway)"
+echo "Started all 5 services (4 RPC + 1 Unified Gateway)"
 
 # 监控循环：每 2 秒检查二进制签名，只重启签名(内容)发生变化的服务
 while true; do
     sleep 2
 
-    for name in user_rpc product_rpc order_rpc pay_rpc user_api product_api order_api pay_api gateway_api; do
+    for name in user_rpc product_rpc order_rpc pay_rpc gateway_api; do
         # 该服务正在重启中则跳过，等重启完成后再检测，避免并发重启同一服务
         restart_busy "$name" && continue
 
@@ -200,10 +185,6 @@ while true; do
                 product_rpc) restart_service "product_rpc" PRODUCT_RPC_PID PRODUCT_RPC_SIG start_product_rpc 9001 ;;
                 order_rpc) restart_service "order_rpc" ORDER_RPC_PID ORDER_RPC_SIG start_order_rpc 9002 ;;
                 pay_rpc) restart_service "pay_rpc" PAY_RPC_PID PAY_RPC_SIG start_pay_rpc 9003 ;;
-                user_api) restart_service "user_api" USER_API_PID USER_API_SIG start_user_api 8000 ;;
-                product_api) restart_service "product_api" PRODUCT_API_PID PRODUCT_API_SIG start_product_api 8001 ;;
-                order_api) restart_service "order_api" ORDER_API_PID ORDER_API_SIG start_order_api 8002 ;;
-                pay_api) restart_service "pay_api" PAY_API_PID PAY_API_SIG start_pay_api 8003 ;;
                 gateway_api) restart_service "gateway_api" GATEWAY_API_PID GATEWAY_API_SIG start_gateway_api 8888 ;;
             esac
         fi

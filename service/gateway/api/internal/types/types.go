@@ -46,3 +46,16 @@ type UserLoginResponse struct {
 	AccessToken  string `json:"accessToken"`
 	AccessExpire int64  `json:"accessExpire"`
 }
+
+type MpLoginRequest struct {
+	Code     string `json:"code"`
+	Username string `json:"username,optional"`
+	Avatar   string `json:"avatar,optional"`
+}
+
+type MpLoginResponse struct {
+	AccessToken  string `json:"accessToken"`
+	AccessExpire int64  `json:"accessExpire"`
+	UserId       int64  `json:"userId"`
+	CasdoorName  string `json:"casdoorName"`
+}

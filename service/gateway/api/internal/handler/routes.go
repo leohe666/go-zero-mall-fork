@@ -19,9 +19,16 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Path:    "/api/user/login",
 				Handler: UserLoginHandler(serverCtx),
 			},
+			{
+				Method:  http.MethodPost,
+				Path:    "/api/user/mp/login",
+				Handler: MpLoginHandler(serverCtx),
+			},
 		},
 	)
 
+	// userinfo / aggregate 使用 go-zero 内置 JWT 中间件（401 时返回空 body + HTTP 401，
+	// 属于可接受的默认行为，不参与统一响应包装）
 	server.AddRoutes(
 		[]rest.Route{
 			{

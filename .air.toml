@@ -1,19 +1,19 @@
-# .air.toml - go-zero 微服务热加载配置
-# 放在 code/ 根目录，air 监听所有 service/*/api 和 service/*/rpc 目录
+# .air.toml - go-zero 微服务热加载配置（默认 air 配置）
+# 放在 code/ 根目录，air 监听 4 个 RPC + 统一网关目录（旧 API 服务已删除）
 # 只负责监听文件变化并编译，运行由 start-services.sh 处理
 
 root = "."
 tmp_dir = "tmp"
 
 [build]
-# 编译所有 8 个服务到 tmp/
-cmd = "go build -o ./tmp/user_api ./service/user/api && go build -o ./tmp/product_api ./service/product/api && go build -o ./tmp/order_api ./service/order/api && go build -o ./tmp/pay_api ./service/pay/api && go build -o ./tmp/user_rpc ./service/user/rpc && go build -o ./tmp/product_rpc ./service/product/rpc && go build -o ./tmp/order_rpc ./service/order/rpc && go build -o ./tmp/pay_rpc ./service/pay/rpc"
+# 编译 5 个服务到 tmp/（4 RPC + 统一网关）
+cmd = "go build -o ./tmp/user_rpc ./service/user/rpc && go build -o ./tmp/product_rpc ./service/product/rpc && go build -o ./tmp/order_rpc ./service/order/rpc && go build -o ./tmp/pay_rpc ./service/pay/rpc && go build -o ./tmp/gateway_api ./service/gateway/api"
 # bin 留空，full_bin 设为 true 且指向 true 命令（空操作），彻底禁用 air 的 runner
 bin = ""
 full_bin = "true"
 include_ext = ["go", "yaml", "yml"]
 exclude_dir = ["data", "tmp", "vendor", ".git"]
-include_dir = ["service/user/api", "service/product/api", "service/order/api", "service/pay/api", "service/user/rpc", "service/product/rpc", "service/order/rpc", "service/pay/rpc"]
+include_dir = ["service/user/rpc", "service/product/rpc", "service/order/rpc", "service/pay/rpc", "service/gateway"]
 log = "build-errors.log"
 
 [log]

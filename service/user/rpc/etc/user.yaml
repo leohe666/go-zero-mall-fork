@@ -1,6 +1,14 @@
 Name: user.rpc
 ListenOn: 0.0.0.0:9000
 Mode: dev
+Log:
+  ServiceName: rpc.rpc
+  Mode: file
+  Encoding: json
+  Path: /var/log/golang
+  Level: info
+  TimeFormat: "2006-01-02T15:04:05.000Z07:00"
+
 
 Etcd:
   Hosts:

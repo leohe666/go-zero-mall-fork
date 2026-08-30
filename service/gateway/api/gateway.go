@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 
+	"mall/common/response"
 	"mall/service/gateway/api/internal/config"
 	"mall/service/gateway/api/internal/handler"
 	"mall/service/gateway/api/internal/svc"
@@ -26,11 +27,13 @@ func main() {
 	// 统一网关：一个进程、一个端口 (8888)，所有业务 API 的唯一入口。
 	//   - Upstreams：HTTP -> gRPC 纯透传（register / 订单 / 商品 / 支付 CRUD）
 	//   - AddRoutes：login（签发 JWT）、userinfo / aggregate（校验 JWT、多 RPC 聚合编排）
-	// BFF 聚合层已合并回本网关，不再需要独立的 BFF 进程/端口。
+	//   - response.Wrapper：全局中间件（rest.Server.Use 对所有路由生效），
+	//     所有响应统一为 {code, msg, data} 结构
 	gw := gateway.MustNewServer(c.GatewayConf)
 	defer gw.Stop()
 
 	ctx := svc.NewServiceContext(c)
+	gw.Server.Use(response.Wrapper)
 	handler.RegisterHandlers(gw.Server, ctx)
 
 	fmt.Printf("Starting unified gateway at %s:%d...\n", c.Host, c.Port)

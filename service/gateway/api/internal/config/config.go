@@ -1,6 +1,8 @@
 package config
 
 import (
+	"mall/common/casdoorx"
+
 	"github.com/zeromicro/go-zero/gateway"
 	"github.com/zeromicro/go-zero/zrpc"
 )
@@ -23,4 +25,7 @@ type Config struct {
 	UserRpc    zrpc.RpcClientConf
 	OrderRpc   zrpc.RpcClientConf
 	ProductRpc zrpc.RpcClientConf
+
+	// Casdoor SaaS 身份认证（微信小程序登录）
+	Casdoor casdoorx.Config
 }

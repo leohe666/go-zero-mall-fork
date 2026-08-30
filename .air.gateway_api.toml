@@ -10,7 +10,7 @@ bin = ""
 full_bin = "true"
 include_ext = ["go", "yaml", "yml"]
 exclude_dir = ["data", "tmp", "vendor", ".git"]
-include_dir = ["service/gateway"]
+include_dir = ["service/gateway", "common"]
 log = "build-errors.gateway_api.log"
 # 防抖：文件变化后等待 500ms 再触发构建，避免保存时多次触发
 delay = 500

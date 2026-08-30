@@ -8,8 +8,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"mall/service/bff/api/internal/svc"
-	"mall/service/bff/api/internal/types"
+	"mall/service/gateway/api/internal/svc"
+	"mall/service/gateway/api/internal/types"
 	"mall/service/user/rpc/types/user"
 
 	"github.com/zeromicro/go-zero/core/logx"

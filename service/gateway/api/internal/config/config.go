@@ -2,12 +2,25 @@ package config
 
 import (
 	"github.com/zeromicro/go-zero/gateway"
+	"github.com/zeromicro/go-zero/zrpc"
 )
 
-// Config 是纯透传网关的配置。
+// Config 是统一网关的配置。
 //
-// 方案 B：网关只做 HTTP -> gRPC 透传（由 GatewayConf.Upstreams 驱动，零业务代码），
-// 不再承载 JWT 签发与聚合编排；那些接口已拆到独立 BFF 服务 service/bff/api。
+// 统一网关：一个进程、一个端口 (8888)。
+//   - Upstreams（GatewayConf）：HTTP -> gRPC 纯透传（register / 订单 / 商品 / 支付 CRUD）
+//   - Auth + 下游 RPC 客户端：login（签发 JWT）、userinfo / aggregate（校验 JWT、多 RPC 编排聚合）
+//
+// BFF 聚合层已合并回本网关，不再需要独立的 BFF 服务。
 type Config struct {
 	gateway.GatewayConf
+
+	Auth struct {
+		AccessSecret string
+		AccessExpire int64
+	}
+
+	UserRpc    zrpc.RpcClientConf
+	OrderRpc   zrpc.RpcClientConf
+	ProductRpc zrpc.RpcClientConf
 }

@@ -1,4 +1,4 @@
-# .air.gateway_api.toml - gateway_api (统一 BFF 网关) 热加载配置
+# .air.gateway_api.toml - gateway_api (统一网关) 热加载配置
 # 只监听 service/gateway 目录，只编译 gateway_api 一个二进制
 # 配合 start-services.sh：tmp/gateway_api 二进制变化时只重启网关
 root = "."

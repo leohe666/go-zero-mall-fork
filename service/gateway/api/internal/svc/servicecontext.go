@@ -1,7 +1,7 @@
 package svc
 
 import (
-	"mall/service/bff/api/internal/config"
+	"mall/service/gateway/api/internal/config"
 	"mall/service/order/rpc/order"
 	"mall/service/product/rpc/product"
 	"mall/service/user/rpc/user"

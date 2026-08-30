@@ -1,5 +1,5 @@
 #!/bin/bash
-# start-services.sh - 启动所有 API 服务 + RPC 服务 + 网关 + BFF，配合每服务独立的 air 热加载
+# start-services.sh - 启动所有 API 服务 + RPC 服务 + 统一网关，配合每服务独立的 air 热加载
 # air (.air.<service>.toml) 只监听对应服务目录并编译到 tmp/，
 # 本脚本监控 tmp/ 下二进制文件变化，只重启发生变化的那个服务
 # 兼容 Linux(容器 /usr/src/code) 和 macOS(本地脚本目录)
@@ -29,7 +29,6 @@ go build -o ./tmp/product_rpc ./service/product/rpc
 go build -o ./tmp/order_rpc ./service/order/rpc
 go build -o ./tmp/pay_rpc ./service/pay/rpc
 go build -o ./tmp/gateway_api ./service/gateway/api
-go build -o ./tmp/bff_api ./service/bff/api
 
 # 二进制签名 = "mtime(秒):size"，同时兼容 GNU stat(Linux) 与 BSD stat(macOS)
 # 相比只比较 mtime，加 size 可避免同秒内两次构建(秒级 mtime 相同)漏检
@@ -54,7 +53,6 @@ PRODUCT_RPC_SIG=$(get_sig ./tmp/product_rpc)
 ORDER_RPC_SIG=$(get_sig ./tmp/order_rpc)
 PAY_RPC_SIG=$(get_sig ./tmp/pay_rpc)
 GATEWAY_API_SIG=$(get_sig ./tmp/gateway_api)
-BFF_API_SIG=$(get_sig ./tmp/bff_api)
 
 # 等待端口释放
 wait_port_free() {
@@ -105,7 +103,6 @@ start_product_api() { ./tmp/product_api -f ./service/product/api/etc/product.yam
 start_order_api() { ./tmp/order_api -f ./service/order/api/etc/order.yaml & }
 start_pay_api() { ./tmp/pay_api -f ./service/pay/api/etc/pay.yaml & }
 start_gateway_api() { ./tmp/gateway_api -f ./service/gateway/api/etc/gateway.yaml & }
-start_bff_api() { ./tmp/bff_api -f ./service/bff/api/etc/bff.yaml & }
 
 # 每服务"重启中"标记 (bash3 兼容写法)，避免同一服务在重启期间被再次触发导致并发重启竞态
 restart_busy() {
@@ -181,15 +178,14 @@ start_product_api; PRODUCT_API_PID=$!
 start_order_api; ORDER_API_PID=$!
 start_pay_api; PAY_API_PID=$!
 start_gateway_api; GATEWAY_API_PID=$!
-start_bff_api; BFF_API_PID=$!
 
-echo "Started all 10 services (4 RPC + 4 API + 1 Gateway + 1 BFF)"
+echo "Started all 9 services (4 RPC + 4 API + 1 Unified Gateway)"
 
 # 监控循环：每 2 秒检查二进制签名，只重启签名(内容)发生变化的服务
 while true; do
     sleep 2
 
-    for name in user_rpc product_rpc order_rpc pay_rpc user_api product_api order_api pay_api gateway_api bff_api; do
+    for name in user_rpc product_rpc order_rpc pay_rpc user_api product_api order_api pay_api gateway_api; do
         # 该服务正在重启中则跳过，等重启完成后再检测，避免并发重启同一服务
         restart_busy "$name" && continue
 
@@ -209,7 +205,6 @@ while true; do
                 order_api) restart_service "order_api" ORDER_API_PID ORDER_API_SIG start_order_api 8002 ;;
                 pay_api) restart_service "pay_api" PAY_API_PID PAY_API_SIG start_pay_api 8003 ;;
                 gateway_api) restart_service "gateway_api" GATEWAY_API_PID GATEWAY_API_SIG start_gateway_api 8888 ;;
-                bff_api) restart_service "bff_api" BFF_API_PID BFF_API_SIG start_bff_api 8887 ;;
             esac
         fi
     done

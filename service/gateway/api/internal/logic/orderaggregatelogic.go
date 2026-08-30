@@ -6,8 +6,8 @@ package logic
 import (
 	"context"
 
-	"mall/service/bff/api/internal/svc"
-	"mall/service/bff/api/internal/types"
+	"mall/service/gateway/api/internal/svc"
+	"mall/service/gateway/api/internal/types"
 	"mall/service/order/rpc/types/order"
 	"mall/service/product/rpc/types/product"
 	"mall/service/user/rpc/types/user"

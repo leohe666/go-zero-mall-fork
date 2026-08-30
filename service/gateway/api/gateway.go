@@ -8,6 +8,8 @@ import (
 	"fmt"
 
 	"mall/service/gateway/api/internal/config"
+	"mall/service/gateway/api/internal/handler"
+	"mall/service/gateway/api/internal/svc"
 
 	"github.com/zeromicro/go-zero/core/conf"
 	"github.com/zeromicro/go-zero/gateway"
@@ -21,11 +23,16 @@ func main() {
 	var c config.Config
 	conf.MustLoad(*configFile, &c)
 
-	// 纯透传网关：只根据 Upstreams 把 HTTP 直接转发到下游 gRPC，零业务代码。
-	// 聚合/编排接口（login/userinfo/aggregate）已拆到独立 BFF 服务 service/bff/api（端口 8887）。
+	// 统一网关：一个进程、一个端口 (8888)，所有业务 API 的唯一入口。
+	//   - Upstreams：HTTP -> gRPC 纯透传（register / 订单 / 商品 / 支付 CRUD）
+	//   - AddRoutes：login（签发 JWT）、userinfo / aggregate（校验 JWT、多 RPC 聚合编排）
+	// BFF 聚合层已合并回本网关，不再需要独立的 BFF 进程/端口。
 	gw := gateway.MustNewServer(c.GatewayConf)
 	defer gw.Stop()
 
-	fmt.Printf("Starting gateway at %s:%d...\n", c.Host, c.Port)
+	ctx := svc.NewServiceContext(c)
+	handler.RegisterHandlers(gw.Server, ctx)
+
+	fmt.Printf("Starting unified gateway at %s:%d...\n", c.Host, c.Port)
 	gw.Start()
 }

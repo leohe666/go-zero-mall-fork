@@ -42,3 +42,8 @@ func (s *UserServer) LoginByCasdoor(ctx context.Context, in *user.LoginByCasdoor
 	l := logic.NewLoginByCasdoorLogic(ctx, s.svcCtx)
 	return l.LoginByCasdoor(in)
 }
+
+func (s *UserServer) GetMerchant(ctx context.Context, in *user.GetMerchantRequest) (*user.GetMerchantResponse, error) {
+	l := logic.NewGetMerchantLogic(ctx, s.svcCtx)
+	return l.GetMerchant(in)
+}

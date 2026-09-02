@@ -22,7 +22,8 @@ func main() {
 	flag.Parse()
 
 	var c config.Config
-	conf.MustLoad(*configFile, &c)
+	// 开启 conf.UseEnv：允许 yaml 中 ${ENV_VAR} 从环境变量展开（如 ${WECHAT_APP_SECRET}）
+	conf.MustLoad(*configFile, &c, conf.UseEnv())
 
 	// 统一网关：一个进程、一个端口 (8888)，所有业务 API 的唯一入口。
 	//   - Upstreams：HTTP -> gRPC 纯透传（register / 订单 / 商品 / 支付 CRUD）

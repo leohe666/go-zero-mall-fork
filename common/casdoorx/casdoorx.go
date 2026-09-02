@@ -1,14 +1,14 @@
 // Package casdoorx 封装 Casdoor (SaaS 身份认证平台) 的客户端能力：
 //   - ExchangeMiniProgramCode: 将微信小程序 wx.login() 的 code 交给 Casdoor 换取 access_token
 //     （Casdoor 负责与微信服务器换取 openid 并自动创建/更新用户）
-//   - ParseToken: 校验 Casdoor 签发的 JWT（使用 Casdoor 应用的证书公钥）
-//   - MockOpenId: 本地开发模式（无真实微信凭据）下模拟 openid
+//   - ParseToken: 校验 Casdoor 签发的 JWT（使用对应应用的证书公钥）
+//   - UpdateUserPhone: 用小程序用户的 access_token 以用户身份把手机号写回 Casdoor
+//
+// 多商户模式下每个商户携带自己的 clientId + 证书，操作均按传入参数隔离。
 package casdoorx
 
 import (
 	"context"
-	"crypto/sha1"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -21,8 +21,7 @@ import (
 )
 
 // Config Casdoor 配置，与各服务 etc/*.yaml 中的 Casdoor 段对应。
-// 基于 SaaS 模式：Endpoint 指向 Casdoor 实例（云 SaaS 或自建），
-// 每个租户 = Casdoor 中的一个 organization，本应用固定使用 OrganizationName/ApplicationName。
+// 基于 SaaS 模式：Endpoint 指向 Casdoor 实例（云 SaaS 或自建）。
 type Config struct {
 	Endpoint         string `json:"Endpoint"`
 	ClientId         string `json:"ClientId"`
@@ -30,9 +29,6 @@ type Config struct {
 	Certificate      string `json:"Certificate"`
 	OrganizationName string `json:"OrganizationName"`
 	ApplicationName  string `json:"ApplicationName"`
-	// MockMiniProgram 仅本地开发使用：为 true 时跳过 Casdoor→微信的 code 交换，
-	// 直接用 code 生成确定性 openid，便于无真实微信凭据时联调小程序登录流程。
-	MockMiniProgram bool `json:"MockMiniProgram"`
 }
 
 var httpClient = &http.Client{Timeout: 15 * time.Second}
@@ -107,7 +103,7 @@ func ExchangeMiniProgramCode(ctx context.Context, cfg Config, code, username, av
 	return &tokenResp, nil
 }
 
-// Claims Casdoor JWT 声明（用户信息嵌入在 claims 中）
+// Claims Casdoor JWT 声明（用户信息嵌入在 claims 中）。Id 为稳定唯一关联键。
 type Claims struct {
 	Owner string `json:"owner"`
 	Name  string `json:"name"`
@@ -115,9 +111,9 @@ type Claims struct {
 }
 
 // ParseToken 校验 Casdoor 签发的 JWT（RS256/ES256），返回其中携带的用户声明。
-// certificate 为 Casdoor 应用证书的公钥 PEM（x509 证书或 PUBLIC KEY 均可）。
+// certificate 为对应 Casdoor 应用证书的公钥 PEM（x509 证书或 PUBLIC KEY 均可）。
 func ParseToken(ctx context.Context, cfg Config, accessToken string) (*Claims, error) {
-	casdoorsdk.InitConfig(
+	client := casdoorsdk.NewClient(
 		cfg.Endpoint,
 		cfg.ClientId,
 		cfg.ClientSecret,
@@ -126,20 +122,63 @@ func ParseToken(ctx context.Context, cfg Config, accessToken string) (*Claims, e
 		cfg.ApplicationName,
 	)
 
-	parsed, err := casdoorsdk.ParseJwtToken(accessToken)
+	parsed, err := client.ParseJwtToken(accessToken)
 	if err != nil {
 		return nil, fmt.Errorf("parse casdoor jwt error: %w", err)
 	}
-	return &Claims{
+
+	// 旧版本 Casdoor 在 JWT 里没有 id 时，从 userinfo 接口补充
+	claims := &Claims{
 		Owner: parsed.Owner,
 		Name:  parsed.Name,
 		Id:    parsed.Id,
-	}, nil
+	}
+	if claims.Id == "" {
+		u, err := client.WithAccessToken(accessToken).GetAccount()
+		if err == nil && u != nil {
+			claims.Id = u.Id
+			if claims.Name == "" {
+				claims.Name = u.Name
+			}
+		}
+	}
+	if claims.Id == "" {
+		return nil, fmt.Errorf("casdoor jwt has no stable user id (id claim)")
+	}
+	return claims, nil
 }
 
-// MockOpenId 本地开发模式：由 code 生成确定性 openid（模拟微信 jscode2session 返回）。
-// 相同 code 始终得到相同 openid，便于重复登录测试；生产环境请勿开启 MockMiniProgram。
-func MockOpenId(code string) string {
-	sum := sha1.Sum([]byte("mall-mock:" + code))
-	return "mock-" + hex.EncodeToString(sum[:8])
+// UpdateUserPhone 用小程序用户自己的 access_token，以用户身份把手机号写回 Casdoor 用户信息，
+// 无需后端保存 clientSecret。更新字段为 phone（可选 countryCode）。
+func UpdateUserPhone(ctx context.Context, cfg Config, accessToken string, owner, name, phone, countryCode string) error {
+	if phone == "" {
+		return nil
+	}
+	client := casdoorsdk.NewClient(
+		cfg.Endpoint,
+		cfg.ClientId,
+		cfg.ClientSecret,
+		cfg.Certificate,
+		cfg.OrganizationName,
+		cfg.ApplicationName,
+	).WithAccessToken(accessToken)
+
+	u := &casdoorsdk.User{
+		Owner:       owner,
+		Name:        name,
+		Phone:       phone,
+		CountryCode: countryCode,
+	}
+	columns := []string{"phone"}
+	if countryCode != "" {
+		columns = append(columns, "countryCode")
+	}
+	affected, err := client.UpdateUserForColumns(u, columns)
+	if err != nil {
+		return fmt.Errorf("update casdoor user phone error: %w", err)
+	}
+	if !affected {
+		return fmt.Errorf("update casdoor user phone returned no affected rows")
+	}
+	return nil
 }

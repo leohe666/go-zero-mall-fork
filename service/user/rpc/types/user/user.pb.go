@@ -394,10 +394,15 @@ func (x *UserInfoResponse) GetMobile() string {
 
 // 通过 Casdoor 登录（微信小程序等第三方登录落地到本地用户）
 type LoginByCasdoorRequest struct {
-	state       protoimpl.MessageState `protogen:"open.v1"`
-	CasdoorName string                 `protobuf:"bytes,1,opt,name=CasdoorName,proto3" json:"CasdoorName,omitempty"`
-	// 微信 openid（唯一），作为本地用户 mobile 字段存储，避免与手机号用户冲突
-	OpenId        string `protobuf:"bytes,2,opt,name=OpenId,proto3" json:"OpenId,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// 商户 Id（租户隔离的关联维度）
+	MerchantId int64 `protobuf:"varint,1,opt,name=MerchantId,proto3" json:"MerchantId,omitempty"`
+	// Casdoor 用户 Id（关联键，稳定唯一）
+	CasdoorId string `protobuf:"bytes,2,opt,name=CasdoorId,proto3" json:"CasdoorId,omitempty"`
+	// Casdoor 用户名（如 wechat-{openid}，仅展示/兼容旧数据）
+	CasdoorName string `protobuf:"bytes,3,opt,name=CasdoorName,proto3" json:"CasdoorName,omitempty"`
+	// 真实手机号（微信 getPhoneNumber 换取），可能为空
+	Mobile        string `protobuf:"bytes,4,opt,name=Mobile,proto3" json:"Mobile,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -432,6 +437,20 @@ func (*LoginByCasdoorRequest) Descriptor() ([]byte, []int) {
 	return file_user_proto_rawDescGZIP(), []int{6}
 }
 
+func (x *LoginByCasdoorRequest) GetMerchantId() int64 {
+	if x != nil {
+		return x.MerchantId
+	}
+	return 0
+}
+
+func (x *LoginByCasdoorRequest) GetCasdoorId() string {
+	if x != nil {
+		return x.CasdoorId
+	}
+	return ""
+}
+
 func (x *LoginByCasdoorRequest) GetCasdoorName() string {
 	if x != nil {
 		return x.CasdoorName
@@ -439,20 +458,25 @@ func (x *LoginByCasdoorRequest) GetCasdoorName() string {
 	return ""
 }
 
-func (x *LoginByCasdoorRequest) GetOpenId() string {
+func (x *LoginByCasdoorRequest) GetMobile() string {
 	if x != nil {
-		return x.OpenId
+		return x.Mobile
 	}
 	return ""
 }
 
 type LoginByCasdoorResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            int64                  `protobuf:"varint,1,opt,name=Id,proto3" json:"Id,omitempty"`
-	Name          string                 `protobuf:"bytes,2,opt,name=Name,proto3" json:"Name,omitempty"`
-	Gender        int64                  `protobuf:"varint,3,opt,name=Gender,proto3" json:"Gender,omitempty"`
-	Mobile        string                 `protobuf:"bytes,4,opt,name=Mobile,proto3" json:"Mobile,omitempty"`
-	CasdoorName   string                 `protobuf:"bytes,5,opt,name=CasdoorName,proto3" json:"CasdoorName,omitempty"`
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	Id     int64                  `protobuf:"varint,1,opt,name=Id,proto3" json:"Id,omitempty"`
+	Name   string                 `protobuf:"bytes,2,opt,name=Name,proto3" json:"Name,omitempty"`
+	Gender int64                  `protobuf:"varint,3,opt,name=Gender,proto3" json:"Gender,omitempty"`
+	Mobile string                 `protobuf:"bytes,4,opt,name=Mobile,proto3" json:"Mobile,omitempty"`
+	// Casdoor 用户 Id（关联键）
+	CasdoorId string `protobuf:"bytes,5,opt,name=CasdoorId,proto3" json:"CasdoorId,omitempty"`
+	// Casdoor 用户名（展示用）
+	CasdoorName string `protobuf:"bytes,6,opt,name=CasdoorName,proto3" json:"CasdoorName,omitempty"`
+	// 所属商户
+	MerchantId    int64 `protobuf:"varint,7,opt,name=MerchantId,proto3" json:"MerchantId,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -515,9 +539,186 @@ func (x *LoginByCasdoorResponse) GetMobile() string {
 	return ""
 }
 
+func (x *LoginByCasdoorResponse) GetCasdoorId() string {
+	if x != nil {
+		return x.CasdoorId
+	}
+	return ""
+}
+
 func (x *LoginByCasdoorResponse) GetCasdoorName() string {
 	if x != nil {
 		return x.CasdoorName
+	}
+	return ""
+}
+
+func (x *LoginByCasdoorResponse) GetMerchantId() int64 {
+	if x != nil {
+		return x.MerchantId
+	}
+	return 0
+}
+
+// 商户配置（SaaS：每商户自己的 Casdoor 应用 + 微信小程序凭据）
+type GetMerchantRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=Id,proto3" json:"Id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetMerchantRequest) Reset() {
+	*x = GetMerchantRequest{}
+	mi := &file_user_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetMerchantRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetMerchantRequest) ProtoMessage() {}
+
+func (x *GetMerchantRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetMerchantRequest.ProtoReflect.Descriptor instead.
+func (*GetMerchantRequest) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *GetMerchantRequest) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+type GetMerchantResponse struct {
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	Id     int64                  `protobuf:"varint,1,opt,name=Id,proto3" json:"Id,omitempty"`
+	Name   string                 `protobuf:"bytes,2,opt,name=Name,proto3" json:"Name,omitempty"`
+	Status int64                  `protobuf:"varint,3,opt,name=Status,proto3" json:"Status,omitempty"`
+	// Casdoor 租户段（openid 链路）
+	CasdoorEndpoint string `protobuf:"bytes,4,opt,name=CasdoorEndpoint,proto3" json:"CasdoorEndpoint,omitempty"`
+	CasdoorClientId string `protobuf:"bytes,5,opt,name=CasdoorClientId,proto3" json:"CasdoorClientId,omitempty"`
+	CasdoorOrg      string `protobuf:"bytes,6,opt,name=CasdoorOrg,proto3" json:"CasdoorOrg,omitempty"`
+	CasdoorApp      string `protobuf:"bytes,7,opt,name=CasdoorApp,proto3" json:"CasdoorApp,omitempty"`
+	CasdoorCertPem  string `protobuf:"bytes,8,opt,name=CasdoorCertPem,proto3" json:"CasdoorCertPem,omitempty"`
+	// 微信小程序段（手机号链路；secret 已解密为明文返回）
+	WxAppId       string `protobuf:"bytes,9,opt,name=WxAppId,proto3" json:"WxAppId,omitempty"`
+	WxAppSecret   string `protobuf:"bytes,10,opt,name=WxAppSecret,proto3" json:"WxAppSecret,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetMerchantResponse) Reset() {
+	*x = GetMerchantResponse{}
+	mi := &file_user_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetMerchantResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetMerchantResponse) ProtoMessage() {}
+
+func (x *GetMerchantResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetMerchantResponse.ProtoReflect.Descriptor instead.
+func (*GetMerchantResponse) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *GetMerchantResponse) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *GetMerchantResponse) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *GetMerchantResponse) GetStatus() int64 {
+	if x != nil {
+		return x.Status
+	}
+	return 0
+}
+
+func (x *GetMerchantResponse) GetCasdoorEndpoint() string {
+	if x != nil {
+		return x.CasdoorEndpoint
+	}
+	return ""
+}
+
+func (x *GetMerchantResponse) GetCasdoorClientId() string {
+	if x != nil {
+		return x.CasdoorClientId
+	}
+	return ""
+}
+
+func (x *GetMerchantResponse) GetCasdoorOrg() string {
+	if x != nil {
+		return x.CasdoorOrg
+	}
+	return ""
+}
+
+func (x *GetMerchantResponse) GetCasdoorApp() string {
+	if x != nil {
+		return x.CasdoorApp
+	}
+	return ""
+}
+
+func (x *GetMerchantResponse) GetCasdoorCertPem() string {
+	if x != nil {
+		return x.CasdoorCertPem
+	}
+	return ""
+}
+
+func (x *GetMerchantResponse) GetWxAppId() string {
+	if x != nil {
+		return x.WxAppId
+	}
+	return ""
+}
+
+func (x *GetMerchantResponse) GetWxAppSecret() string {
+	if x != nil {
+		return x.WxAppSecret
 	}
 	return ""
 }
@@ -552,21 +753,48 @@ const file_user_proto_rawDesc = "" +
 	"\x02Id\x18\x01 \x01(\x03R\x02Id\x12\x12\n" +
 	"\x04Name\x18\x02 \x01(\tR\x04Name\x12\x16\n" +
 	"\x06Gender\x18\x03 \x01(\x03R\x06Gender\x12\x16\n" +
-	"\x06Mobile\x18\x04 \x01(\tR\x06Mobile\"Q\n" +
-	"\x15LoginByCasdoorRequest\x12 \n" +
-	"\vCasdoorName\x18\x01 \x01(\tR\vCasdoorName\x12\x16\n" +
-	"\x06OpenId\x18\x02 \x01(\tR\x06OpenId\"\x8e\x01\n" +
+	"\x06Mobile\x18\x04 \x01(\tR\x06Mobile\"\x8f\x01\n" +
+	"\x15LoginByCasdoorRequest\x12\x1e\n" +
+	"\n" +
+	"MerchantId\x18\x01 \x01(\x03R\n" +
+	"MerchantId\x12\x1c\n" +
+	"\tCasdoorId\x18\x02 \x01(\tR\tCasdoorId\x12 \n" +
+	"\vCasdoorName\x18\x03 \x01(\tR\vCasdoorName\x12\x16\n" +
+	"\x06Mobile\x18\x04 \x01(\tR\x06Mobile\"\xcc\x01\n" +
 	"\x16LoginByCasdoorResponse\x12\x0e\n" +
 	"\x02Id\x18\x01 \x01(\x03R\x02Id\x12\x12\n" +
 	"\x04Name\x18\x02 \x01(\tR\x04Name\x12\x16\n" +
 	"\x06Gender\x18\x03 \x01(\x03R\x06Gender\x12\x16\n" +
-	"\x06Mobile\x18\x04 \x01(\tR\x06Mobile\x12 \n" +
-	"\vCasdoorName\x18\x05 \x01(\tR\vCasdoorName2\xfb\x01\n" +
+	"\x06Mobile\x18\x04 \x01(\tR\x06Mobile\x12\x1c\n" +
+	"\tCasdoorId\x18\x05 \x01(\tR\tCasdoorId\x12 \n" +
+	"\vCasdoorName\x18\x06 \x01(\tR\vCasdoorName\x12\x1e\n" +
+	"\n" +
+	"MerchantId\x18\a \x01(\x03R\n" +
+	"MerchantId\"$\n" +
+	"\x12GetMerchantRequest\x12\x0e\n" +
+	"\x02Id\x18\x01 \x01(\x03R\x02Id\"\xc9\x02\n" +
+	"\x13GetMerchantResponse\x12\x0e\n" +
+	"\x02Id\x18\x01 \x01(\x03R\x02Id\x12\x12\n" +
+	"\x04Name\x18\x02 \x01(\tR\x04Name\x12\x16\n" +
+	"\x06Status\x18\x03 \x01(\x03R\x06Status\x12(\n" +
+	"\x0fCasdoorEndpoint\x18\x04 \x01(\tR\x0fCasdoorEndpoint\x12(\n" +
+	"\x0fCasdoorClientId\x18\x05 \x01(\tR\x0fCasdoorClientId\x12\x1e\n" +
+	"\n" +
+	"CasdoorOrg\x18\x06 \x01(\tR\n" +
+	"CasdoorOrg\x12\x1e\n" +
+	"\n" +
+	"CasdoorApp\x18\a \x01(\tR\n" +
+	"CasdoorApp\x12&\n" +
+	"\x0eCasdoorCertPem\x18\b \x01(\tR\x0eCasdoorCertPem\x12\x18\n" +
+	"\aWxAppId\x18\t \x01(\tR\aWxAppId\x12 \n" +
+	"\vWxAppSecret\x18\n" +
+	" \x01(\tR\vWxAppSecret2\xbf\x02\n" +
 	"\x04User\x120\n" +
 	"\x05Login\x12\x12.user.LoginRequest\x1a\x13.user.LoginResponse\x129\n" +
 	"\bRegister\x12\x15.user.RegisterRequest\x1a\x16.user.RegisterResponse\x129\n" +
 	"\bUserInfo\x12\x15.user.UserInfoRequest\x1a\x16.user.UserInfoResponse\x12K\n" +
-	"\x0eLoginByCasdoor\x12\x1b.user.LoginByCasdoorRequest\x1a\x1c.user.LoginByCasdoorResponseB\bZ\x06./userb\x06proto3"
+	"\x0eLoginByCasdoor\x12\x1b.user.LoginByCasdoorRequest\x1a\x1c.user.LoginByCasdoorResponse\x12B\n" +
+	"\vGetMerchant\x12\x18.user.GetMerchantRequest\x1a\x19.user.GetMerchantResponseB\bZ\x06./userb\x06proto3"
 
 var (
 	file_user_proto_rawDescOnce sync.Once
@@ -580,7 +808,7 @@ func file_user_proto_rawDescGZIP() []byte {
 	return file_user_proto_rawDescData
 }
 
-var file_user_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_user_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_user_proto_goTypes = []any{
 	(*LoginRequest)(nil),           // 0: user.LoginRequest
 	(*LoginResponse)(nil),          // 1: user.LoginResponse
@@ -590,18 +818,22 @@ var file_user_proto_goTypes = []any{
 	(*UserInfoResponse)(nil),       // 5: user.UserInfoResponse
 	(*LoginByCasdoorRequest)(nil),  // 6: user.LoginByCasdoorRequest
 	(*LoginByCasdoorResponse)(nil), // 7: user.LoginByCasdoorResponse
+	(*GetMerchantRequest)(nil),     // 8: user.GetMerchantRequest
+	(*GetMerchantResponse)(nil),    // 9: user.GetMerchantResponse
 }
 var file_user_proto_depIdxs = []int32{
 	0, // 0: user.User.Login:input_type -> user.LoginRequest
 	2, // 1: user.User.Register:input_type -> user.RegisterRequest
 	4, // 2: user.User.UserInfo:input_type -> user.UserInfoRequest
 	6, // 3: user.User.LoginByCasdoor:input_type -> user.LoginByCasdoorRequest
-	1, // 4: user.User.Login:output_type -> user.LoginResponse
-	3, // 5: user.User.Register:output_type -> user.RegisterResponse
-	5, // 6: user.User.UserInfo:output_type -> user.UserInfoResponse
-	7, // 7: user.User.LoginByCasdoor:output_type -> user.LoginByCasdoorResponse
-	4, // [4:8] is the sub-list for method output_type
-	0, // [0:4] is the sub-list for method input_type
+	8, // 4: user.User.GetMerchant:input_type -> user.GetMerchantRequest
+	1, // 5: user.User.Login:output_type -> user.LoginResponse
+	3, // 6: user.User.Register:output_type -> user.RegisterResponse
+	5, // 7: user.User.UserInfo:output_type -> user.UserInfoResponse
+	7, // 8: user.User.LoginByCasdoor:output_type -> user.LoginByCasdoorResponse
+	9, // 9: user.User.GetMerchant:output_type -> user.GetMerchantResponse
+	5, // [5:10] is the sub-list for method output_type
+	0, // [0:5] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
 	0, // [0:0] is the sub-list for extension extendee
 	0, // [0:0] is the sub-list for field type_name
@@ -618,7 +850,7 @@ func file_user_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_user_proto_rawDesc), len(file_user_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   8,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

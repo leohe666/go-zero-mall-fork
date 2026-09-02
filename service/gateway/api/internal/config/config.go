@@ -1,8 +1,6 @@
 package config
 
 import (
-	"mall/common/casdoorx"
-
 	"github.com/zeromicro/go-zero/gateway"
 	"github.com/zeromicro/go-zero/zrpc"
 )
@@ -14,6 +12,10 @@ import (
 //   - Auth + 下游 RPC 客户端：login（签发 JWT）、userinfo / aggregate（校验 JWT、多 RPC 编排聚合）
 //
 // BFF 聚合层已合并回本网关，不再需要独立的 BFF 服务。
+//
+// SaaS 多商户：每商户的 Casdoor 应用/组织 + 微信小程序凭据都存在 merchant 表（MySQL），
+// 经 user rpc GetMerchant 读取（微信 AppSecret 在 user rpc 内用平台主密钥解密）。
+// 网关配置文件不再持有任何商户凭据（无 Casdoor clientId/证书、无微信 AppID/Secret）。
 type Config struct {
 	gateway.GatewayConf
 
@@ -25,7 +27,4 @@ type Config struct {
 	UserRpc    zrpc.RpcClientConf
 	OrderRpc   zrpc.RpcClientConf
 	ProductRpc zrpc.RpcClientConf
-
-	// Casdoor SaaS 身份认证（微信小程序登录）
-	Casdoor casdoorx.Config
 }

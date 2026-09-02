@@ -23,6 +23,7 @@ const (
 	User_Register_FullMethodName       = "/user.User/Register"
 	User_UserInfo_FullMethodName       = "/user.User/UserInfo"
 	User_LoginByCasdoor_FullMethodName = "/user.User/LoginByCasdoor"
+	User_GetMerchant_FullMethodName    = "/user.User/GetMerchant"
 )
 
 // UserClient is the client API for User service.
@@ -33,6 +34,7 @@ type UserClient interface {
 	Register(ctx context.Context, in *RegisterRequest, opts ...grpc.CallOption) (*RegisterResponse, error)
 	UserInfo(ctx context.Context, in *UserInfoRequest, opts ...grpc.CallOption) (*UserInfoResponse, error)
 	LoginByCasdoor(ctx context.Context, in *LoginByCasdoorRequest, opts ...grpc.CallOption) (*LoginByCasdoorResponse, error)
+	GetMerchant(ctx context.Context, in *GetMerchantRequest, opts ...grpc.CallOption) (*GetMerchantResponse, error)
 }
 
 type userClient struct {
@@ -83,6 +85,16 @@ func (c *userClient) LoginByCasdoor(ctx context.Context, in *LoginByCasdoorReque
 	return out, nil
 }
 
+func (c *userClient) GetMerchant(ctx context.Context, in *GetMerchantRequest, opts ...grpc.CallOption) (*GetMerchantResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetMerchantResponse)
+	err := c.cc.Invoke(ctx, User_GetMerchant_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // UserServer is the server API for User service.
 // All implementations must embed UnimplementedUserServer
 // for forward compatibility.
@@ -91,6 +103,7 @@ type UserServer interface {
 	Register(context.Context, *RegisterRequest) (*RegisterResponse, error)
 	UserInfo(context.Context, *UserInfoRequest) (*UserInfoResponse, error)
 	LoginByCasdoor(context.Context, *LoginByCasdoorRequest) (*LoginByCasdoorResponse, error)
+	GetMerchant(context.Context, *GetMerchantRequest) (*GetMerchantResponse, error)
 	mustEmbedUnimplementedUserServer()
 }
 
@@ -112,6 +125,9 @@ func (UnimplementedUserServer) UserInfo(context.Context, *UserInfoRequest) (*Use
 }
 func (UnimplementedUserServer) LoginByCasdoor(context.Context, *LoginByCasdoorRequest) (*LoginByCasdoorResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method LoginByCasdoor not implemented")
+}
+func (UnimplementedUserServer) GetMerchant(context.Context, *GetMerchantRequest) (*GetMerchantResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetMerchant not implemented")
 }
 func (UnimplementedUserServer) mustEmbedUnimplementedUserServer() {}
 func (UnimplementedUserServer) testEmbeddedByValue()              {}
@@ -206,6 +222,24 @@ func _User_LoginByCasdoor_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
+func _User_GetMerchant_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetMerchantRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServer).GetMerchant(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: User_GetMerchant_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServer).GetMerchant(ctx, req.(*GetMerchantRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // User_ServiceDesc is the grpc.ServiceDesc for User service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -228,6 +262,10 @@ var User_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "LoginByCasdoor",
 			Handler:    _User_LoginByCasdoor_Handler,
+		},
+		{
+			MethodName: "GetMerchant",
+			Handler:    _User_GetMerchant_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

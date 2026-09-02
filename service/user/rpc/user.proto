@@ -46,16 +46,45 @@ message UserInfoResponse {
 
 // 通过 Casdoor 登录（微信小程序等第三方登录落地到本地用户）
 message LoginByCasdoorRequest {
-  string CasdoorName = 1;
-  // 微信 openid（唯一），作为本地用户 mobile 字段存储，避免与手机号用户冲突
-  string OpenId = 2;
+  // 商户 Id（租户隔离的关联维度）
+  int64 MerchantId = 1;
+  // Casdoor 用户 Id（关联键，稳定唯一）
+  string CasdoorId = 2;
+  // Casdoor 用户名（如 wechat-{openid}，仅展示/兼容旧数据）
+  string CasdoorName = 3;
+  // 真实手机号（微信 getPhoneNumber 换取），可能为空
+  string Mobile = 4;
 }
 message LoginByCasdoorResponse {
   int64 Id = 1;
   string Name = 2;
   int64 Gender = 3;
   string Mobile = 4;
-  string CasdoorName = 5;
+  // Casdoor 用户 Id（关联键）
+  string CasdoorId = 5;
+  // Casdoor 用户名（展示用）
+  string CasdoorName = 6;
+  // 所属商户
+  int64 MerchantId = 7;
+}
+
+// 商户配置（SaaS：每商户自己的 Casdoor 应用 + 微信小程序凭据）
+message GetMerchantRequest {
+  int64 Id = 1;
+}
+message GetMerchantResponse {
+  int64 Id = 1;
+  string Name = 2;
+  int64 Status = 3;
+  // Casdoor 租户段（openid 链路）
+  string CasdoorEndpoint   = 4;
+  string CasdoorClientId   = 5;
+  string CasdoorOrg        = 6;
+  string CasdoorApp        = 7;
+  string CasdoorCertPem    = 8;
+  // 微信小程序段（手机号链路；secret 已解密为明文返回）
+  string WxAppId           = 9;
+  string WxAppSecret       = 10;
 }
 
 service User {
@@ -63,4 +92,5 @@ service User {
   rpc Register(RegisterRequest) returns(RegisterResponse);
   rpc UserInfo(UserInfoRequest) returns(UserInfoResponse);
   rpc LoginByCasdoor(LoginByCasdoorRequest) returns(LoginByCasdoorResponse);
+  rpc GetMerchant(GetMerchantRequest) returns(GetMerchantResponse);
 }

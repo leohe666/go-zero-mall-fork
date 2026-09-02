@@ -28,7 +28,7 @@ func NewRegisterLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Register
 
 func (l *RegisterLogic) Register(in *user.RegisterRequest) (*user.RegisterResponse, error) {
 	// 判断手机号是否已经注册
-	_, err := l.svcCtx.UserModel.FindOneByMobile(l.ctx, in.Mobile)
+	_, err := l.svcCtx.UserModel.FindOneByMerchantIdMobile(l.ctx, 1, in.Mobile)  // 默认商户 1
 	if err == nil {
 		return nil, status.Error(100, "该用户已存在")
 	}
@@ -36,10 +36,11 @@ func (l *RegisterLogic) Register(in *user.RegisterRequest) (*user.RegisterRespon
 	if err == model.ErrNotFound {
 
 		newUser := model.User{
-			Name:     in.Name,
-			Gender:   in.Gender,
-			Mobile:   in.Mobile,
-			Password: cryptx.PasswordEncrypt(l.svcCtx.Config.Salt, in.Password),
+			MerchantId: 1, // 默认商户 1（手机密码注册为存量兼容）
+			Name:       in.Name,
+			Gender:     in.Gender,
+			Mobile:     in.Mobile,
+			Password:   cryptx.PasswordEncrypt(l.svcCtx.Config.Salt, in.Password),
 		}
 
 		res, err := l.svcCtx.UserModel.Insert(l.ctx, &newUser)

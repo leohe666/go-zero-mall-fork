@@ -28,7 +28,7 @@ func NewLoginLogic(ctx context.Context, svcCtx *svc.ServiceContext) *LoginLogic 
 
 func (l *LoginLogic) Login(in *user.LoginRequest) (*user.LoginResponse, error) {
 	// 查询用户是否存在
-	res, err := l.svcCtx.UserModel.FindOneByMobile(l.ctx, in.Mobile)
+	res, err := l.svcCtx.UserModel.FindOneByMerchantIdMobile(l.ctx, 1, in.Mobile)  // 默认商户 1（手机密码登录为存量兼容）
 	if err != nil {
 		if err == model.ErrNotFound {
 			return nil, status.Error(100, "用户不存在")

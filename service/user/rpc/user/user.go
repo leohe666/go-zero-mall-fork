@@ -21,12 +21,15 @@ type (
 	UserInfoResponse       = user.UserInfoResponse
 	LoginByCasdoorRequest  = user.LoginByCasdoorRequest
 	LoginByCasdoorResponse = user.LoginByCasdoorResponse
+	GetMerchantRequest     = user.GetMerchantRequest
+	GetMerchantResponse    = user.GetMerchantResponse
 
 	User interface {
 		Login(ctx context.Context, in *LoginRequest, opts ...grpc.CallOption) (*LoginResponse, error)
 		Register(ctx context.Context, in *RegisterRequest, opts ...grpc.CallOption) (*RegisterResponse, error)
 		UserInfo(ctx context.Context, in *UserInfoRequest, opts ...grpc.CallOption) (*UserInfoResponse, error)
 		LoginByCasdoor(ctx context.Context, in *LoginByCasdoorRequest, opts ...grpc.CallOption) (*LoginByCasdoorResponse, error)
+		GetMerchant(ctx context.Context, in *GetMerchantRequest, opts ...grpc.CallOption) (*GetMerchantResponse, error)
 	}
 
 	defaultUser struct {
@@ -58,4 +61,9 @@ func (m *defaultUser) UserInfo(ctx context.Context, in *UserInfoRequest, opts ..
 func (m *defaultUser) LoginByCasdoor(ctx context.Context, in *LoginByCasdoorRequest, opts ...grpc.CallOption) (*LoginByCasdoorResponse, error) {
 	client := user.NewUserClient(m.cli.Conn())
 	return client.LoginByCasdoor(ctx, in, opts...)
+}
+
+func (m *defaultUser) GetMerchant(ctx context.Context, in *GetMerchantRequest, opts ...grpc.CallOption) (*GetMerchantResponse, error) {
+	client := user.NewUserClient(m.cli.Conn())
+	return client.GetMerchant(ctx, in, opts...)
 }

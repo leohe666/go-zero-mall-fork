@@ -48,14 +48,25 @@ type UserLoginResponse struct {
 }
 
 type MpLoginRequest struct {
-	Code     string `json:"code"`
-	Username string `json:"username,optional"`
-	Avatar   string `json:"avatar,optional"`
+	// MerchantId 商户 Id（SaaS 租户标识，必填；对应 merchant 表）
+	MerchantId int64  `json:"merchantId"`
+	Code       string `json:"code"`
+	Username   string `json:"username,optional"`
+	Avatar     string `json:"avatar,optional"`
+	// PhoneCode getPhoneNumber 组件返回的一次性 code，用于换取手机号（必填）
+	PhoneCode string `json:"phoneCode,optional"`
 }
 
 type MpLoginResponse struct {
 	AccessToken  string `json:"accessToken"`
 	AccessExpire int64  `json:"accessExpire"`
 	UserId       int64  `json:"userId"`
-	CasdoorName  string `json:"casdoorName"`
+	// MerchantId 所属商户（租户）
+	MerchantId int64 `json:"merchantId"`
+	// CasdoorId Casdoor 用户 Id（稳定唯一关联键）
+	CasdoorId string `json:"casdoorId"`
+	// CasdoorName Casdoor 用户名（展示用）
+	CasdoorName string `json:"casdoorName"`
+	// Mobile 微信授权获取的真实手机号
+	Mobile string `json:"mobile,omitempty"`
 }

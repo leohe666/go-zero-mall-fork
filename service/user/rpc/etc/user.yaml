@@ -23,6 +23,10 @@ CacheRedis:
     Type: node
 
 Salt: HWVOFkGgPTryzICwd7qnJaZR9KQ2i8xe
+
+# 平台主密钥文件（32 字节 hex）：用于解密商户微信 AppSecret。
+# 生产建议 KMS 注入；开发用 gitignore 的 data/master.key，禁止提交。
+MerchantMasterKeyFile: ${MERCHANT_MASTER_KEY_FILE}
 Telemetry:
   Name: user.rpc
   Endpoint: jaeger:4317

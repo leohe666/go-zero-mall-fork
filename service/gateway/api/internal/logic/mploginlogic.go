@@ -67,6 +67,7 @@ func (l *MpLoginLogic) MpLogin(req *types.MpLoginRequest) (resp *types.MpLoginRe
 	cfg := casdoorx.Config{
 		Endpoint:         m.CasdoorEndpoint,
 		ClientId:         m.CasdoorClientId,
+		ClientSecret:     m.CasdoorClientSecret,
 		OrganizationName: m.CasdoorOrg,
 		ApplicationName:  m.CasdoorApp,
 		Certificate:      m.CasdoorCertPem,
@@ -97,10 +98,11 @@ func (l *MpLoginLogic) MpLogin(req *types.MpLoginRequest) (resp *types.MpLoginRe
 	}
 	l.Logger.Infof("mini program user %s phone %s", claims.Name, maskPhone(mobile))
 
-	// 5) 用用户自己的 Casdoor JWT 把手机号+国家码写回 Casdoor（失败不阻断本地登录）。
-	//    需 mall 组织 Country code modifyRule=Self（已在控制台配置），
-	//    body 带稳定 Id（ID 字段 Immutable，缺失会报 "The ID is immutable"）。
-	if err := casdoorx.UpdateUserPhone(l.ctx, cfg, accessToken, claims.Id, claims.Owner, claims.Name, mobile, "CN"); err != nil {
+	// 5) 用应用 client_credentials（admin 上下文）把手机号+国家码写回 Casdoor。
+	//    不用用户自更新 token：Casdoor 3.163.0 普通用户更新受 ID/Country code/User type
+	//    等 ModifyRule 守卫限制（微信用户 cc 为空时写 phone 必连带写 cc），
+	//    client_credentials 的 admin token 一次性绕过。失败不阻断本地登录。
+	if err := casdoorx.UpdateUserPhone(l.ctx, cfg, claims.Id, claims.Owner, claims.Name, mobile, "CN"); err != nil {
 		l.Logger.Errorf("update casdoor user phone error: %v", err)
 	} else {
 		l.Logger.Infof("casdoor user %s phone synced to casdoor", claims.Id)

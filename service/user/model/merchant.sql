@@ -5,6 +5,7 @@ CREATE TABLE `merchant`
     `status`            TINYINT NOT NULL DEFAULT 1 COMMENT '状态: 1启用 0停用',
     `casdoor_endpoint`  VARCHAR(255) NOT NULL DEFAULT '' COMMENT '该商户的 Casdoor 实例地址',
     `casdoor_client_id` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '该商户在 Casdoor 的应用 clientId',
+    `casdoor_client_secret_enc` VARCHAR(512) NOT NULL DEFAULT '' COMMENT 'Casdoor 应用 clientSecret（AES-GCM 加密后）',
     `casdoor_org`       VARCHAR(64) NOT NULL DEFAULT '' COMMENT 'Casdoor organization（租户名）',
     `casdoor_app`       VARCHAR(64) NOT NULL DEFAULT '' COMMENT 'Casdoor application 名',
     `casdoor_cert_pem`  TEXT COMMENT '该商户 Casdoor 应用证书公钥（校验 JWT）',

@@ -82,6 +82,8 @@ message GetMerchantResponse {
   string CasdoorOrg        = 6;
   string CasdoorApp        = 7;
   string CasdoorCertPem    = 8;
+  // Casdoor 应用 clientSecret（解密返回，供网关以 client_credentials 获取 admin token 写回手机号）
+  string CasdoorClientSecret = 11;
   // 微信小程序段（手机号链路；secret 已解密为明文返回）
   string WxAppId           = 9;
   string WxAppSecret       = 10;

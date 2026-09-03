@@ -27,7 +27,7 @@ func NewGetMerchantLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetMe
 }
 
 // GetMerchant 返回商户配置：Casdoor 租户段 + 微信小程序凭据。
-// 微信 AppSecret 在 user rpc 侧用平台主密钥解密后返回，
+// 微信 AppSecret 与 Casdoor clientSecret 均在 user rpc 侧用平台主密钥解密后返回，
 // 网关不接触主密钥（安全边界：密钥只存在于 user rpc 与数据库）。
 func (l *GetMerchantLogic) GetMerchant(in *user.GetMerchantRequest) (*user.GetMerchantResponse, error) {
 	res, err := l.svcCtx.MerchantModel.FindOne(l.ctx, in.Id)
@@ -48,16 +48,26 @@ func (l *GetMerchantLogic) GetMerchant(in *user.GetMerchantRequest) (*user.GetMe
 		return nil, status.Error(500, "解密商户凭据失败")
 	}
 
+	csSecret := ""
+	if res.CasdoorClientSecretEnc != "" {
+		csSecret, err = merchantx.Decrypt(l.svcCtx.MerchantMasterKey, res.CasdoorClientSecretEnc)
+		if err != nil {
+			l.Logger.Errorf("decrypt merchant %d casdoor client secret error: %v", in.Id, err)
+			return nil, status.Error(500, "解密商户凭据失败")
+		}
+	}
+
 	return &user.GetMerchantResponse{
-		Id:                res.Id,
-		Name:              res.Name,
-		Status:            res.Status,
-		CasdoorEndpoint:   res.CasdoorEndpoint,
-		CasdoorClientId:   res.CasdoorClientId,
-		CasdoorOrg:        res.CasdoorOrg,
-		CasdoorApp:        res.CasdoorApp,
-		CasdoorCertPem:    res.CasdoorCertPem.String,
-		WxAppId:           res.WxAppId,
-		WxAppSecret:       wxSecret,
+		Id:                  res.Id,
+		Name:                res.Name,
+		Status:              res.Status,
+		CasdoorEndpoint:     res.CasdoorEndpoint,
+		CasdoorClientId:     res.CasdoorClientId,
+		CasdoorOrg:          res.CasdoorOrg,
+		CasdoorApp:          res.CasdoorApp,
+		CasdoorCertPem:      res.CasdoorCertPem.String,
+		CasdoorClientSecret: csSecret,
+		WxAppId:             res.WxAppId,
+		WxAppSecret:         wxSecret,
 	}, nil
 }

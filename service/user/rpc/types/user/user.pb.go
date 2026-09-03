@@ -616,6 +616,8 @@ type GetMerchantResponse struct {
 	CasdoorOrg      string `protobuf:"bytes,6,opt,name=CasdoorOrg,proto3" json:"CasdoorOrg,omitempty"`
 	CasdoorApp      string `protobuf:"bytes,7,opt,name=CasdoorApp,proto3" json:"CasdoorApp,omitempty"`
 	CasdoorCertPem  string `protobuf:"bytes,8,opt,name=CasdoorCertPem,proto3" json:"CasdoorCertPem,omitempty"`
+	// Casdoor 应用 clientSecret（解密返回，供网关以 client_credentials 获取 admin token 写回手机号）
+	CasdoorClientSecret string `protobuf:"bytes,11,opt,name=CasdoorClientSecret,proto3" json:"CasdoorClientSecret,omitempty"`
 	// 微信小程序段（手机号链路；secret 已解密为明文返回）
 	WxAppId       string `protobuf:"bytes,9,opt,name=WxAppId,proto3" json:"WxAppId,omitempty"`
 	WxAppSecret   string `protobuf:"bytes,10,opt,name=WxAppSecret,proto3" json:"WxAppSecret,omitempty"`
@@ -709,6 +711,13 @@ func (x *GetMerchantResponse) GetCasdoorCertPem() string {
 	return ""
 }
 
+func (x *GetMerchantResponse) GetCasdoorClientSecret() string {
+	if x != nil {
+		return x.CasdoorClientSecret
+	}
+	return ""
+}
+
 func (x *GetMerchantResponse) GetWxAppId() string {
 	if x != nil {
 		return x.WxAppId
@@ -772,7 +781,7 @@ const file_user_proto_rawDesc = "" +
 	"MerchantId\x18\a \x01(\x03R\n" +
 	"MerchantId\"$\n" +
 	"\x12GetMerchantRequest\x12\x0e\n" +
-	"\x02Id\x18\x01 \x01(\x03R\x02Id\"\xc9\x02\n" +
+	"\x02Id\x18\x01 \x01(\x03R\x02Id\"\xfb\x02\n" +
 	"\x13GetMerchantResponse\x12\x0e\n" +
 	"\x02Id\x18\x01 \x01(\x03R\x02Id\x12\x12\n" +
 	"\x04Name\x18\x02 \x01(\tR\x04Name\x12\x16\n" +
@@ -785,7 +794,8 @@ const file_user_proto_rawDesc = "" +
 	"\n" +
 	"CasdoorApp\x18\a \x01(\tR\n" +
 	"CasdoorApp\x12&\n" +
-	"\x0eCasdoorCertPem\x18\b \x01(\tR\x0eCasdoorCertPem\x12\x18\n" +
+	"\x0eCasdoorCertPem\x18\b \x01(\tR\x0eCasdoorCertPem\x120\n" +
+	"\x13CasdoorClientSecret\x18\v \x01(\tR\x13CasdoorClientSecret\x12\x18\n" +
 	"\aWxAppId\x18\t \x01(\tR\aWxAppId\x12 \n" +
 	"\vWxAppSecret\x18\n" +
 	" \x01(\tR\vWxAppSecret2\xbf\x02\n" +

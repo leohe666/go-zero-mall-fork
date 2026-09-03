@@ -2,8 +2,8 @@
 //   - ExchangeMiniProgramCode: 将微信小程序 wx.login() 的 code 交给 Casdoor 换取 access_token
 //     （Casdoor 负责与微信服务器换取 openid 并自动创建/更新用户）
 //   - ParseToken: 校验 Casdoor 签发的 JWT（使用对应应用的证书公钥）
-//   - UpdateUserPhone: 用小程序用户的 access_token 以用户身份把手机号写回 Casdoor
-//     （需 mall 组织 accountItems 中 Country code modifyRule=Self，且 body 带稳定 Id）
+//   - UpdateUserPhone: 用应用 client_credentials（admin 上下文）把手机号写回 Casdoor
+//     （用户自更新 token 受 ID/Country code/User type 等 ModifyRule 守卫限制，无法写回 cc 为空的用户）
 //
 // 多商户模式下每个商户携带自己的 clientId + clientSecret + 证书，操作均按传入参数隔离。
 package casdoorx
@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/casdoor/casdoor-go-sdk/casdoorsdk"
@@ -33,6 +34,13 @@ type Config struct {
 }
 
 var httpClient = &http.Client{Timeout: 15 * time.Second}
+
+// client_credentials token 进程内缓存（clientId+clientSecret 换取的 admin 上下文 token）。
+var (
+	ccMu      sync.Mutex
+	ccToken   string
+	ccExpires time.Time
+)
 
 // MiniProgramTokenResponse Casdoor /api/login/oauth/access_token 的响应
 // 注意：Casdoor 成功响应使用驼峰字段（accessToken/tokenType/...），
@@ -149,18 +157,35 @@ func ParseToken(ctx context.Context, cfg Config, accessToken string) (*Claims, e
 	return claims, nil
 }
 
-// UpdateUserPhone 用小程序用户自己的 access_token，以用户身份把手机号写回 Casdoor 用户信息。
+// UpdateUserPhone 用应用级 client_credentials（admin 上下文）把手机号写回 Casdoor 用户。
 //
-// 注意：Casdoor 组织 accountItems 中 Country code 的 modifyRule 必须是 Self（默认 Admin），
-// 否则写 cc 为空的微信用户手机号会被拒（"Only admin can modify the Country code"）。
-// mall 组织已在控制台将该字段改为 Self。
+// 为什么不用用户自更新 access_token：Casdoor 3.163.0 对普通用户更新有一连串
+// accountItems ModifyRule 守卫（ID=Immutable、Country code=Admin、User type=Admin…），
+// 微信自动创建的用户 countryCode 为空，写 phone 时服务端归一化连带写 countryCode，
+// 且 SDK 全量序列化 User 结构体导致零值字段覆盖真实值，普通用户 token 会被拒
+// （"The ID is immutable"/"Only admin can modify the Country code"/"Only admin can modify the User type"）。
+// client_credentials 的 admin token 一次性绕过所有 ModifyRule，是官方后端管理 API 模式。
+//
+// clientSecret 由网关从 merchant 表经 GetMerchant 获取（user rpc 用主密钥解密），
+// 不落配置文件；token 进程内缓存、提前 5 分钟过期。
 //
 // userId 必须传 Casdoor 用户的稳定 Id（UUID）且与目标一致：
 // ID 字段 modifyRule=Immutable，body 中缺失或不一致会报 "The ID is immutable"。
-func UpdateUserPhone(ctx context.Context, cfg Config, accessToken, userId, owner, name, phone, countryCode string) error {
+func UpdateUserPhone(ctx context.Context, cfg Config, userId, owner, name, phone, countryCode string) error {
 	if phone == "" {
 		return nil
 	}
+	if cfg.ClientSecret == "" {
+		return fmt.Errorf("casdoor client secret not configured for phone writeback")
+	}
+
+	// 1) client_credentials 换 admin 上下文 token
+	token, err := oauthClientCredentialsToken(ctx, cfg)
+	if err != nil {
+		return err
+	}
+
+	// 2) 以 admin 身份更新 phone + countryCode
 	client := casdoorsdk.NewClient(
 		cfg.Endpoint,
 		cfg.ClientId,
@@ -168,7 +193,7 @@ func UpdateUserPhone(ctx context.Context, cfg Config, accessToken, userId, owner
 		cfg.Certificate,
 		cfg.OrganizationName,
 		cfg.ApplicationName,
-	).WithAccessToken(accessToken)
+	).WithAccessToken(token)
 
 	u := &casdoorsdk.User{
 		Owner:       owner,
@@ -189,4 +214,60 @@ func UpdateUserPhone(ctx context.Context, cfg Config, accessToken, userId, owner
 		return fmt.Errorf("update casdoor user phone returned no affected rows")
 	}
 	return nil
+}
+
+// oauthClientCredentialsToken 用应用 clientId+clientSecret 换取 Casdoor access_token
+// （grant_type=client_credentials，admin 上下文）。token 进程内缓存、提前 5 分钟过期。
+func oauthClientCredentialsToken(ctx context.Context, cfg Config) (string, error) {
+	ccMu.Lock()
+	defer ccMu.Unlock()
+
+	if ccToken != "" && time.Now().Before(ccExpires) {
+		return ccToken, nil
+	}
+
+	form := url.Values{}
+	form.Set("grant_type", "client_credentials")
+	form.Set("client_id", cfg.ClientId)
+	form.Set("client_secret", cfg.ClientSecret)
+
+	endpoint := strings.TrimSuffix(cfg.Endpoint, "/") + "/api/login/oauth/access_token"
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(form.Encode()))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("call casdoor client_credentials error: %w", err)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	var tr MiniProgramTokenResponse
+	if err := json.Unmarshal(body, &tr); err != nil {
+		return "", fmt.Errorf("parse casdoor client_credentials error: %w, body: %s", err, string(body))
+	}
+	if tr.Error != "" {
+		return "", fmt.Errorf("casdoor client_credentials error: %s: %s", tr.Error, tr.Description)
+	}
+	token := tr.EffectiveAccessToken()
+	if token == "" {
+		return "", fmt.Errorf("casdoor client_credentials returned empty token, body: %s", string(body))
+	}
+
+	ttl := tr.ExpiresIn
+	if ttl == 0 {
+		ttl = tr.ExpiresInCamel
+	}
+	if ttl <= 0 {
+		ttl = 7200 // 默认 2 小时
+	}
+	ccToken = token
+	ccExpires = time.Now().Add(time.Duration(ttl-300) * time.Second)
+	return token, nil
 }

@@ -45,18 +45,19 @@ type (
 	}
 
 	Merchant struct {
-		Id              int64          `db:"id"`
-		Name            string         `db:"name"`              // 商户名称
-		Status          int64          `db:"status"`            // 状态: 1启用 0停用
-		CasdoorEndpoint string         `db:"casdoor_endpoint"`  // 该商户的 Casdoor 实例地址
-		CasdoorClientId string         `db:"casdoor_client_id"` // 该商户在 Casdoor 的应用 clientId
-		CasdoorOrg      string         `db:"casdoor_org"`       // Casdoor organization（租户名）
-		CasdoorApp      string         `db:"casdoor_app"`       // Casdoor application 名
-		CasdoorCertPem  sql.NullString `db:"casdoor_cert_pem"`  // 该商户 Casdoor 应用证书公钥（校验 JWT）
-		WxAppId         string         `db:"wx_app_id"`         // 微信小程序 AppID（公开）
-		WxAppSecretEnc  string         `db:"wx_app_secret_enc"` // 微信 AppSecret（AES-GCM 加密后）
-		CreateTime      time.Time      `db:"create_time"`
-		UpdateTime      time.Time      `db:"update_time"`
+		Id                     int64          `db:"id"`
+		Name                   string         `db:"name"`                      // 商户名称
+		Status                 int64          `db:"status"`                    // 状态: 1启用 0停用
+		CasdoorEndpoint        string         `db:"casdoor_endpoint"`          // 该商户的 Casdoor 实例地址
+		CasdoorClientId        string         `db:"casdoor_client_id"`         // 该商户在 Casdoor 的应用 clientId
+		CasdoorClientSecretEnc string         `db:"casdoor_client_secret_enc"` // Casdoor 应用 clientSecret（AES-GCM 加密后）
+		CasdoorOrg             string         `db:"casdoor_org"`               // Casdoor organization（租户名）
+		CasdoorApp             string         `db:"casdoor_app"`               // Casdoor application 名
+		CasdoorCertPem         sql.NullString `db:"casdoor_cert_pem"`          // 该商户 Casdoor 应用证书公钥（校验 JWT）
+		WxAppId                string         `db:"wx_app_id"`                 // 微信小程序 AppID（公开）
+		WxAppSecretEnc         string         `db:"wx_app_secret_enc"`         // 微信 AppSecret（AES-GCM 加密后）
+		CreateTime             time.Time      `db:"create_time"`
+		UpdateTime             time.Time      `db:"update_time"`
 	}
 )
 
@@ -145,8 +146,8 @@ func (m *defaultMerchantModel) Insert(ctx context.Context, data *Merchant) (sql.
 	merchantIdKey := fmt.Sprintf("%s%v", cacheMerchantIdPrefix, data.Id)
 	merchantWxAppIdKey := fmt.Sprintf("%s%v", cacheMerchantWxAppIdPrefix, data.WxAppId)
 	ret, err := m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
-		query := fmt.Sprintf("insert into %s (%s) values (?, ?, ?, ?, ?, ?, ?, ?, ?)", m.table, merchantRowsExpectAutoSet)
-		return conn.ExecCtx(ctx, query, data.Name, data.Status, data.CasdoorEndpoint, data.CasdoorClientId, data.CasdoorOrg, data.CasdoorApp, data.CasdoorCertPem, data.WxAppId, data.WxAppSecretEnc)
+		query := fmt.Sprintf("insert into %s (%s) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", m.table, merchantRowsExpectAutoSet)
+		return conn.ExecCtx(ctx, query, data.Name, data.Status, data.CasdoorEndpoint, data.CasdoorClientId, data.CasdoorClientSecretEnc, data.CasdoorOrg, data.CasdoorApp, data.CasdoorCertPem, data.WxAppId, data.WxAppSecretEnc)
 	}, merchantCasdoorClientIdKey, merchantIdKey, merchantWxAppIdKey)
 	return ret, err
 }
@@ -162,7 +163,7 @@ func (m *defaultMerchantModel) Update(ctx context.Context, newData *Merchant) er
 	merchantWxAppIdKey := fmt.Sprintf("%s%v", cacheMerchantWxAppIdPrefix, data.WxAppId)
 	_, err = m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
 		query := fmt.Sprintf("update %s set %s where `id` = ?", m.table, merchantRowsWithPlaceHolder)
-		return conn.ExecCtx(ctx, query, newData.Name, newData.Status, newData.CasdoorEndpoint, newData.CasdoorClientId, newData.CasdoorOrg, newData.CasdoorApp, newData.CasdoorCertPem, newData.WxAppId, newData.WxAppSecretEnc, newData.Id)
+		return conn.ExecCtx(ctx, query, newData.Name, newData.Status, newData.CasdoorEndpoint, newData.CasdoorClientId, newData.CasdoorClientSecretEnc, newData.CasdoorOrg, newData.CasdoorApp, newData.CasdoorCertPem, newData.WxAppId, newData.WxAppSecretEnc, newData.Id)
 	}, merchantCasdoorClientIdKey, merchantIdKey, merchantWxAppIdKey)
 	return err
 }

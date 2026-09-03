@@ -3,8 +3,9 @@
 //     （Casdoor 负责与微信服务器换取 openid 并自动创建/更新用户）
 //   - ParseToken: 校验 Casdoor 签发的 JWT（使用对应应用的证书公钥）
 //   - UpdateUserPhone: 用小程序用户的 access_token 以用户身份把手机号写回 Casdoor
+//     （需 mall 组织 accountItems 中 Country code modifyRule=Self，且 body 带稳定 Id）
 //
-// 多商户模式下每个商户携带自己的 clientId + 证书，操作均按传入参数隔离。
+// 多商户模式下每个商户携带自己的 clientId + clientSecret + 证书，操作均按传入参数隔离。
 package casdoorx
 
 import (
@@ -148,9 +149,15 @@ func ParseToken(ctx context.Context, cfg Config, accessToken string) (*Claims, e
 	return claims, nil
 }
 
-// UpdateUserPhone 用小程序用户自己的 access_token，以用户身份把手机号写回 Casdoor 用户信息，
-// 无需后端保存 clientSecret。更新字段为 phone（可选 countryCode）。
-func UpdateUserPhone(ctx context.Context, cfg Config, accessToken string, owner, name, phone, countryCode string) error {
+// UpdateUserPhone 用小程序用户自己的 access_token，以用户身份把手机号写回 Casdoor 用户信息。
+//
+// 注意：Casdoor 组织 accountItems 中 Country code 的 modifyRule 必须是 Self（默认 Admin），
+// 否则写 cc 为空的微信用户手机号会被拒（"Only admin can modify the Country code"）。
+// mall 组织已在控制台将该字段改为 Self。
+//
+// userId 必须传 Casdoor 用户的稳定 Id（UUID）且与目标一致：
+// ID 字段 modifyRule=Immutable，body 中缺失或不一致会报 "The ID is immutable"。
+func UpdateUserPhone(ctx context.Context, cfg Config, accessToken, userId, owner, name, phone, countryCode string) error {
 	if phone == "" {
 		return nil
 	}
@@ -166,6 +173,7 @@ func UpdateUserPhone(ctx context.Context, cfg Config, accessToken string, owner,
 	u := &casdoorsdk.User{
 		Owner:       owner,
 		Name:        name,
+		Id:          userId,
 		Phone:       phone,
 		CountryCode: countryCode,
 	}

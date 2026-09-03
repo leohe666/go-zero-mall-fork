@@ -97,8 +97,10 @@ func (l *MpLoginLogic) MpLogin(req *types.MpLoginRequest) (resp *types.MpLoginRe
 	}
 	l.Logger.Infof("mini program user %s phone %s", claims.Name, maskPhone(mobile))
 
-	// 5) 用用户自己的 Casdoor JWT 把手机号写回 Casdoor（失败不阻断本地登录）
-	if err := casdoorx.UpdateUserPhone(l.ctx, cfg, accessToken, claims.Owner, claims.Name, mobile, ""); err != nil {
+	// 5) 用用户自己的 Casdoor JWT 把手机号+国家码写回 Casdoor（失败不阻断本地登录）。
+	//    需 mall 组织 Country code modifyRule=Self（已在控制台配置），
+	//    body 带稳定 Id（ID 字段 Immutable，缺失会报 "The ID is immutable"）。
+	if err := casdoorx.UpdateUserPhone(l.ctx, cfg, accessToken, claims.Id, claims.Owner, claims.Name, mobile, "CN"); err != nil {
 		l.Logger.Errorf("update casdoor user phone error: %v", err)
 	} else {
 		l.Logger.Infof("casdoor user %s phone synced to casdoor", claims.Id)
